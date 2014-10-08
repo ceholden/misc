@@ -3,7 +3,7 @@
 #$ -l h_rt=48:00:00
 #$ -j y
 
-intersects=/usr3/graduate/ceholden/code/Vector/intersects_wrs2.py
+intersects=/usr3/graduate/ceholden/code/misc/vector/intersects_wrs2.py
 
 trends=/projectnb/landsat/datasets/LandTrends/
 
