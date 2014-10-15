@@ -1,35 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # vim: set expandtab:ts=4
-
 ###
 #
 # Author:               Chris Holden
 # Date:                 5/21/2013
 #
-# Version:              1.5
-#   Changelog:
-#       1.0:            Initial version of stacking code
-#       1.5:            Update to allow for each stacking file for a given
-#                           Landsat image to have different geographic
-#                           attributes.
-#       2.0:            Added percentile stack option
-#                           min/max will be determined by np.percentile(<pct>)
-#                           of all min/max coordinates
-#       3.0:            Added --co flag to specify GDAL driver creation options
 ###
-
 """Stack Landsat Data
 
-Usage: landsat_stack.py [options] (--max_extent | --min_extent | 
-    --extent=<extent> | --percentile=<pct>) <location>
+Usage: landsat_stack.py [options] (--max_extent | --min_extent |
+    --extent=<extent> | --percentile=<pct> | --image=<image>) <location>
 
 Options:
     -f --files=<files>...       Files to stack [default: lndsr.*.hdf *Fmask]
     -b --bands=<bands>...       Bands from files to stack [default: all]
     -d --dirs=<pattern>         Directory name pattern to search [default: L*]
     -o --output=<pattern>       Output filename pattern [default: *stack]
-    -p --pickup                 Pickup / resume where left off 
+    -p --pickup                 Pickup / resume where left off
     -n --ndv=<ndv>              No data value [default: 0]
     -u --utm=<zone>             Force a UTM zone (in WGS84)
     -e --exit-on-warn           Exit on warning messages
@@ -72,6 +60,7 @@ DRY_RUN = False
 gdal.UseExceptions()
 gdal.AllRegister()
 
+
 def str2num(string):
     """ String representation of number to int/float utility function """
     try:
@@ -80,12 +69,14 @@ def str2num(string):
         num = float(string)
     return num
 
+
 def parse_nested_input(t):
     """ Utility function for parsing of nested inputs (e.g. ndv, bands)"""
     if isinstance(t, list):
         return [parse_nested_input(s) for s in t if s != '']
     else:
         return str2num(t)
+
 
 def xy2geo(geo_transform, x, y):
     """ Returns the geo-referenced cooridnate of x, y pixel """
@@ -94,20 +85,21 @@ def xy2geo(geo_transform, x, y):
 
     return (geo_x, geo_y)
 
+
 class LandsatImage():
-    """ 
+    """
     A class for each Landsat image. Handles and stores information for
     stacking of Landsat images.
     """
 
-    def __init__(self, directory, patterns, bands, no_data, out_pattern, 
+    def __init__(self, directory, patterns, bands, no_data, out_pattern,
                  fformat='ENVI', dtype=gdal.GDT_Int16, co=['INTERLEAVE=BIP']):
         """
         Find images to be stacked
-        
+
         Arguments:
             directory       Input image directory
-            patterns        List of file name patterns        
+            patterns        List of file name patterns
         """
         # Directory
         self.directory = directory
@@ -147,9 +139,9 @@ class LandsatImage():
             print('<----------------------------------------')
             print('Directory: {d}'.format(d=self.directory))
             print('  Files:')
-            
+
         files = os.listdir(self.directory)
-        
+
         # Find image files according to patterns
         for num, pattern in enumerate(patterns):
             # Filter files by pattern
@@ -164,13 +156,13 @@ class LandsatImage():
                     print('\t{i}'.format(i=matches[0]))
                 # If we found match, add full path
                 self.images.append(os.path.join(self.directory, matches[0]))
-                
+
                 # If we found image, add corresponding bands
                 if bands[0] == ['all']:
                     self.bands.append(['all'])
                 else:
                     self.bands.append(map(str2num, bands[num]))
-    
+
         # Check for subdatasets; we want to add those instead
         self.check_sds(self.images, self.bands, self.no_data)
         # Initialize extent
@@ -192,10 +184,10 @@ class LandsatImage():
             ds = gdal.Open(self.output_name)
             if ds is not None:
                 gt = ds.GetGeoTransform()
-                
+
                 ul_x, ul_y = xy2geo(gt, 0, 0)
                 lr_x, lr_y = xy2geo(gt, ds.RasterXSize, ds.RasterYSize)
-                
+
                 if t_extent == [ul_x, ul_y, lr_x, lr_y]:
                     return True
                 else:
@@ -207,9 +199,9 @@ class LandsatImage():
         return False
 
     def check_sds(self, images, bands, ndv):
-        """ 
-        Substitutes image, bands, & ndv for sub-datasets (useful for HDFs) 
-        
+        """
+        Substitutes image, bands, & ndv for sub-datasets (useful for HDFs)
+
         Arguments:
             images          List of image filenames
             bands           List of lists containing bands for each filename
@@ -219,7 +211,7 @@ class LandsatImage():
         _images = []
         _bands = []
         _ndv = []
-        
+
         for num, image in enumerate(images):
             # Open image
             ds = gdal.Open(image, GA_ReadOnly)
@@ -249,7 +241,7 @@ class LandsatImage():
                 else:
                     _bands.append(bands[num])
                 _ndv.append(ndv[num])
-            # Close 
+            # Close
             ds = None
 
         self.images = list(_images)
@@ -260,18 +252,18 @@ class LandsatImage():
         """
         Initalize image size, projection, geo-transform, and extent.
 
-        Will allow for different geo-transforms and image sizes among the 
+        Will allow for different geo-transforms and image sizes among the
         datasets. Will only warn user if projections are different among files,
         unless user specifies the --exit-on-warn flag.
         """
-        
+
         for n, image in enumerate(self.images):
             # Open image dataset
             ds = gdal.Open(image, GA_ReadOnly)
             if ds == None:
                 print('Cannot open {i}'.format(i=image))
                 sys.exit(1)
-        
+
             # Set size
             size = [ds.RasterXSize, ds.RasterYSize]
             if size[0] == 0 or size[1] == 0:
@@ -336,7 +328,7 @@ class LandsatImage():
                           'This configuration is not supported'.
                           format(i=image))
                     sys.exit(1)
-            
+
             # Find extent
             if geo_transform == '':
                 # Assume extent from previous image if none exists
@@ -365,7 +357,7 @@ class LandsatImage():
         """
         Take self and output a 'stacked' image defined by the target extent
         (t_extent), named according to output_pattern.
-        
+
         Notice: much of this code is graciously taken from gdal_merge.py
         """
         if VERBOSE:
@@ -381,7 +373,7 @@ class LandsatImage():
         y_size = int((t_lr_y - t_ul_y) / self.pixel_size[1] + 0.5)
         if VERBOSE:
             print('Output size: x={x}, y={y}'.format(x=x_size, y=y_size))
-        
+
         # Create driver
         driver = gdal.GetDriverByName(self.format)
         if driver is None:
@@ -390,18 +382,18 @@ class LandsatImage():
             return False
 
         # Create output dataset
-        out_ds = driver.Create(self.output_name, x_size, y_size, 
+        out_ds = driver.Create(self.output_name, x_size, y_size,
                                sum([len(_bands) for _bands in self.bands]),
                                self.dtype, self.create_options)
         if out_ds is None:
             print('Could not create file {f}'.format(f=self.output_name))
             return False
-        
+
         # Define and set output geo transform
-        out_geo_transform = [t_extent[0], self.pixel_size[0], 0, 
+        out_geo_transform = [t_extent[0], self.pixel_size[0], 0,
                              t_extent[1], 0, self.pixel_size[1]]
         out_ds.SetGeoTransform(out_geo_transform)
-        
+
         # Set projection from input, unless forced to a UTM zone
         if utm is None:
             out_ds.SetProjection(self.projection)
@@ -410,11 +402,11 @@ class LandsatImage():
             sr.SetUTM(utm)
             sr.SetWellKnownGeogCS('WGS84')
             out_ds.SetProjection(sr.ExportToWkt())
-        
+
         if VERBOSE:
             print('Output projection: \n '\
                 '\t\t{proj}'.format(proj=out_ds.GetProjection()))
-            
+
         # Loop through list of images and stack
         out_band = 1
         for num, image in enumerate(self.images):
@@ -432,7 +424,7 @@ class LandsatImage():
             else:
                 print('Image has 0 y-pixel size')
                 return False
-            
+
             # Check for overlap
             if tw_ul_x >= tw_lr_x:
                 print('Target and image extent do not overlap')
@@ -443,17 +435,17 @@ class LandsatImage():
             if self.geo_transform[image][5] > 0 and tw_ul_y >= tw_lr_y:
                 print('Target and image extent do not overlap')
                 return False
-    
+
             # Calculate target window in pixel coordinates
-            tw_xoff = int((tw_ul_x - t_extent[0]) / 
+            tw_xoff = int((tw_ul_x - t_extent[0]) /
                           self.geo_transform[image][1] + 0.1)
-            tw_yoff = int((tw_ul_y - t_extent[1]) / 
+            tw_yoff = int((tw_ul_y - t_extent[1]) /
                           self.geo_transform[image][5] + 0.1)
-            tw_xsize = int((tw_lr_x - t_extent[0]) / 
+            tw_xsize = int((tw_lr_x - t_extent[0]) /
                            self.geo_transform[image][1] + 0.5) - tw_xoff
-            tw_ysize = int((tw_lr_y - t_extent[1]) / 
+            tw_ysize = int((tw_lr_y - t_extent[1]) /
                            self.geo_transform[image][5] + 0.5) - tw_yoff
-    
+
             # Calculate source window in pixel coordinates
             sw_xoff = int((tw_ul_x - self.geo_transform[image][0]) /
                           self.geo_transform[image][1])
@@ -461,20 +453,20 @@ class LandsatImage():
                           self.geo_transform[image][5])
             sw_xsize = int((tw_lr_x - self.geo_transform[image][0]) /
                            self.geo_transform[image][1] + 0.5) - sw_xoff
-            sw_ysize = int((tw_lr_y - self.geo_transform[image][3]) / 
+            sw_ysize = int((tw_lr_y - self.geo_transform[image][3]) /
                            self.geo_transform[image][5] + 0.5) - sw_yoff
-    
+
             if sw_xsize < 1 or sw_ysize < 1:
                 print('Error: source window size less than 1 pixel')
                 return False
-                    
+
             # Open image
             ds = gdal.Open(image, GA_ReadOnly)
 
             if ds is None:
                 print('Could not open image {i}'.format(image))
                 return False
-            
+
             for nband, b in enumerate(self.bands[num]):
                 # Open bands in input/output
                 s_band = ds.GetRasterBand(b)
@@ -486,7 +478,7 @@ class LandsatImage():
                 # Read in data
                 data = s_band.ReadRaster(sw_xoff, sw_yoff, sw_xsize, sw_ysize,
                                          tw_xsize, tw_ysize, self.dtype)
-                
+
                 # Initialize the output target band with no_data
                 t_band.Fill(self.no_data[num][nband])
                 # Write data
@@ -502,23 +494,25 @@ class LandsatImage():
         # Return successful
         return True
 
+
 def get_directories(location, dir_pattern):
     """
     Search location for directories according to name pattern
     """
-    stack_dirs = [os.path.join(location, d) for d in 
+    stack_dirs = [os.path.join(location, d) for d in
                     fnmatch.filter(os.listdir(location), dir_pattern)
                     if os.path.isdir(os.path.join(location, d))]
 
     return stack_dirs
 
+
 def get_max_extent(images):
     """
-    Loop through LandsatImages finding the maximum extent of images 
+    Loop through LandsatImages finding the maximum extent of images
     """
     if VERBOSE:
         print('Finding maximum extent')
-    
+
     # Extent - UL_x, UL_y, LR_x, LR_y
     extent = [None, None, None, None]
     for image in images:
@@ -531,7 +525,7 @@ def get_max_extent(images):
             min([e[0] for e in image.extent.values()]),
             max([e[1] for e in image.extent.values()]),
             max([e[2] for e in image.extent.values()]),
-            min([e[3] for e in image.extent.values()])    
+            min([e[3] for e in image.extent.values()])
         ]
 
        # Update extent as needed
@@ -543,12 +537,13 @@ def get_max_extent(images):
             extent[2] = image_extent[2]
         if extent[3] is None or image_extent[3] < extent[3]:
             extent[3] = image_extent[3]
-        
+
         if VERBOSE:
             if _extent != extent:
                 print('{img} updated maximum extent'.format(img=image))
-    
+
     return copy.deepcopy(extent)
+
 
 def get_min_extent(images):
     """
@@ -556,14 +551,14 @@ def get_min_extent(images):
     """
     if VERBOSE:
         print('Finding minimum extent')
-    
+
     # Extent - UL_x, UL_y, LR_x, LR_y
     extent = [None, None, None, None]
     for image in images:
         if VERBOSE:
             # Store last extent for update reporting purposes
             _extent = list(extent)
-        
+
         # Collect min extent from all images for this LandsatImage
         image_extent = [
             max([e[0] for e in image.extent.values()]),
@@ -587,6 +582,7 @@ def get_min_extent(images):
                 print('{img} updated minimum extent'.format(img=image))
 
     return copy.deepcopy(extent)
+
 
 def get_percentile_extent(images, pct):
     """
@@ -623,10 +619,34 @@ def get_percentile_extent(images, pct):
 
     return copy.deepcopy(list(out_extent))
 
-def landsat_stack(location, dir_pattern, image_pattern, out_pattern, 
-                  bands, ndv, 
+
+def get_extent_from_image(image):
+    """ Returns extent coordinates from an image
+
+    Args:
+      image (str): filename of image to use
+
+    Returns:
+      extent (list): extent specified by upper left and lower right X/Y pairs
+
+    """
+    ds = gdal.Open(image, gdal.GA_ReadOnly)
+    gt = ds.GetGeoTransform()
+    ncol = ds.RasterXSize
+    nrow = ds.RasterYSize
+
+    ulx = gt[0]
+    uly = gt[3]
+    lrx = gt[0] + (ncol * gt[1]) + (nrow * gt[2])
+    lry = gt[3] + (ncol * gt[4]) + (nrow * gt[5])
+
+    return [ulx, uly, lrx, lry]
+
+
+def landsat_stack(location, dir_pattern, image_pattern, out_pattern,
+                  bands, ndv,
                   extent=None, max_extent=None, min_extent=None,
-                  percentile=None,
+                  percentile=None, extent_image=None,
                   utm=None, resume=False,
                   fformat='ENVI', co='INTERLEAVE=BIP'):
     """ Performs stacking of Landsat data
@@ -641,6 +661,10 @@ def landsat_stack(location, dir_pattern, image_pattern, out_pattern,
         extent              [ULx, ULy, LRx, LRy] output extent
         max_extent          Option to calculate extent as maximum of all images
         min_extent          Option to calculate extent as minimum of all images
+        percentile          Option to calculate extent as percentile of
+                                maximum extent of all images
+        extent_image        Option to use the extent of a specified image as
+                                the extent of all images
         utm                 UTM zone (WGS84) to assign to output image
         resume              Option to resume by skipping already stacked images
         fformat             GDAL file format
@@ -648,13 +672,12 @@ def landsat_stack(location, dir_pattern, image_pattern, out_pattern,
 
     Example:
         landsat_stack('./', 'L*', 'lndsr*hdf; L*Fmask', '*_stack',
-            [[1, 2, 3, 4, 5, 15], ['all']], [[-9999], [255]], 
+            [[1, 2, 3, 4, 5, 15], ['all']], [[-9999], [255]],
             min_extent=True, resume=True)
     """
-
     ### Check that we provided at least 1 extent option
     extent_opt = 0
-    for opt in [extent, max_extent, min_extent, percentile]:
+    for opt in [extent, max_extent, min_extent, percentile, extent_image]:
         if opt is not None and opt is not False:
             extent_opt = extent_opt + 1
     if extent_opt == 0:
@@ -667,7 +690,7 @@ def landsat_stack(location, dir_pattern, image_pattern, out_pattern,
         if len(extent) != 4:
             print('Error: extent option must have 4 values (UL XY, LR XY)')
             return 1
-    
+
     ### Process stacks
     gdal.AllRegister()
     # Locate folders
@@ -676,7 +699,7 @@ def landsat_stack(location, dir_pattern, image_pattern, out_pattern,
         print('Could not find any Landsat images to stack')
     else:
         print('Found {num} Landsat images to stack.'.format(num=len(dirs)))
-    
+
     # For each folder, initialize a LandsatImage object
     images = []
     for d in dirs:
@@ -686,19 +709,21 @@ def landsat_stack(location, dir_pattern, image_pattern, out_pattern,
     if len(images) != len(dirs) or any([i == False for i in images]):
         print('Could not find Landsat data for all image directories')
         return 1
-    
+
     # If 'max_extent' option, loop through directories getting maximum extent
     if max_extent:
         extent = get_max_extent(images)
     elif min_extent:
         extent = get_min_extent(images)
-    elif percentile is not None:
+    elif percentile:
         extent = get_percentile_extent(images, percentile)
+    elif extent_image:
+        extent = get_extent_from_image(extent_image)
 
     print('\nStacking to extent:')
     print('\tUpper Left: {ulx},{uly}'.format(ulx=extent[0], uly=extent[1]))
     print('\tLower Right: {lrx},{lry}'.format(lrx=extent[2], lry=extent[3]))
-    
+
     # Go through images, apply some attribute and stack
     print('\nStacking images:')
     stack_status = []
@@ -736,7 +761,8 @@ def landsat_stack(location, dir_pattern, image_pattern, out_pattern,
             for n, s in enumerate(success):
                 if s != True:
                     print('\t{i}'.format(i=images[n].id))
-            return 1         
+            return 1
+
 
 def main():
     """ Handle input arugments and pass to landsat_stack function """
@@ -767,7 +793,15 @@ def main():
         if percentile < 0 or percentile > 100:
             print('Error: percentile must be between 0 - 100')
             sys.exit(1)
-    
+
+    extent_image = arguments['--image']
+    if extent_image:
+        try:
+            gdal.Open(extent_image)
+        except:
+            print('Error: cannot open image specifid in --image')
+            return 1
+
     # Input image directory
     location = arguments['<location>']
     if os.path.islink(location):
@@ -781,11 +815,11 @@ def main():
     elif not os.access(location, os.R_OK):
         print('Error: cannot read from input stack directory')
         return 1
-    
+
     # File name pattern
     image_pattern = arguments['--files'].replace(';', ' ').split(' ')
     image_pattern = [p for p in image_pattern if p != '']
-    
+
     # Bands to stack - images split by ";". bands within image by "," or " "
     bands = arguments['--bands'].split(';')
     bands = [b.replace(',', ' ').split(' ') for b in bands]
@@ -797,15 +831,15 @@ def main():
             return 1
     if bands[0] != ['all']:
         bands = parse_nested_input(bands)
-    
+
     # Directory pattern
     dir_pattern = arguments['--dirs']
     # Output pattern
     out_pattern = arguments['--output']
-    
+
     # No data value
     ndv = arguments['--ndv'].split(';')
-    ndv = [[_n for _n in n.replace(',', ' ').split(' ') if _n != ''] 
+    ndv = [[_n for _n in n.replace(',', ' ').split(' ') if _n != '']
             for n in ndv]
     if len(ndv) != len(image_pattern):
         if not QUIET:
@@ -823,7 +857,7 @@ def main():
                 print('Error: must specify NoDataValue for each band')
                 return 1
     ndv = parse_nested_input(ndv)
-  
+
     # Force a UTM zone
     utm = arguments['--utm']
     if utm is not None:
@@ -844,16 +878,17 @@ def main():
     creation_opts = arguments['--co']
     if creation_opts == 'None':
         creation_opts = None
-    
+
     # Now that we've parsed input, perform stacking
-    return(landsat_stack(location, dir_pattern, image_pattern, out_pattern, 
-                         bands, ndv, 
+    return(landsat_stack(location, dir_pattern, image_pattern, out_pattern,
+                         bands, ndv,
                          extent, max_extent, min_extent, percentile,
+                         extent_image,
                          utm, resume, fformat, creation_opts))
 
 if __name__ == '__main__':
     arguments = docopt(__doc__)
-   
+
     if arguments['--verbose']:
         VERBOSE = True
     if arguments['--quiet']:
