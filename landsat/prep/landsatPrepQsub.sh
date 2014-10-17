@@ -193,7 +193,7 @@ function gdal_extent() {
         sed "s/Upper Left  //g;s/Lower Right //g;s/).*//g" |\
         tr "\n" " " |\
         sed 's/ *$//g' |\
-        tr -d "[(,]")
+        tr -d "[(]" | tr "," " ")
     echo -n "$EXTENT"
 }
 
