@@ -5,6 +5,9 @@ __pycache__/
 # C extensions
 *.so
 
+# Dataset ignores
+NE1_50M_SR_W*
+
 # Distribution / packaging
 .Python
 env/
