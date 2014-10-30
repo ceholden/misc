@@ -1,7 +1,7 @@
 #!/bin/bash
 
 dname=L*
-sname=*stack
+sname=*stack*
 cpmtl=0
 
 function usage() {
@@ -47,7 +47,6 @@ function main() {
             echo "Error - could not find stack image for $stkdir"
             exit 1
         }
-        stkfile=$(basename $stk)
 
         if [ $cpmtl -eq 1 ]; then
             mtl=$(find $stkdir/ -maxdepth 1 -name '*MTL.txt' -type f)
@@ -59,7 +58,11 @@ function main() {
 
         mkdir -p $to/$stkname
 
-        ln -s $(readlink -f $stk) $to/$stkname/$stkfile
+        for f in $stk; do
+            fname=$(basename $f)
+            ln -s $(readlink -f $f) $to/$stkname/$fname
+        done
+   
         if [ $cpmtl -eq 1 ]; then
             cp $mtl $to/$stkname/
         fi
