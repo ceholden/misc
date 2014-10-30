@@ -129,7 +129,7 @@ class LandsatImage():
         self.dtype = dtype
         # Creation options
         self.create_options = co
-        if type(self.create_options) != list:
+        if self.create_options and not isinstance(self.create_options, list):
             self.create_options = [self.create_options]
 
         if not os.path.isdir(self.directory):
@@ -382,9 +382,14 @@ class LandsatImage():
             return False
 
         # Create output dataset
-        out_ds = driver.Create(self.output_name, x_size, y_size,
-                               sum([len(_bands) for _bands in self.bands]),
-                               self.dtype, self.create_options)
+        if self.create_options:
+            out_ds = driver.Create(self.output_name, x_size, y_size,
+                                   sum([len(_bands) for _bands in self.bands]),
+                                   self.dtype, self.create_options)
+        else:
+            out_ds = driver.Create(self.output_name, x_size, y_size,
+                                   sum([len(_bands) for _bands in self.bands]),
+                                   self.dtype)
         if out_ds is None:
             print('Could not create file {f}'.format(f=self.output_name))
             return False
