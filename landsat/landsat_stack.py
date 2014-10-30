@@ -22,7 +22,7 @@ Options:
     -u --utm=<zone>             Force a UTM zone (in WGS84)
     -e --exit-on-warn           Exit on warning messages
     --format=<format>           GDAL format [default: ENVI]
-    --co=<creation options>     GDAL creation options [default: None]
+    --co=<creation options>     GDAL creation options
     -v --verbose                Show verbose debugging messages
     -q --quiet                  Be quiet by not showing warnings
     --dry-run                   Dry run - don't actually stack
@@ -881,8 +881,8 @@ def main():
 
     # Creation options
     creation_opts = arguments['--co']
-    if creation_opts == 'None':
-        creation_opts = None
+    if creation_opts:
+        creation_opts = [co for co in creation_opts.split(';')]
 
     # Now that we've parsed input, perform stacking
     return(landsat_stack(location, dir_pattern, image_pattern, out_pattern,
