@@ -4,6 +4,14 @@
 #$ -N make_movie
 #$ -j y
 
+stackname="stack"
+min_max="0 8000"
+srcwin="Full"
+resize=100
+format="PNG"
+ptsize=128
+overwrite=0
+
 function usage {
     cat << EOF
 
@@ -12,35 +20,81 @@ function usage {
     Arguments:
         <input>             The input directory containing stacked images
         <output>            Output directory for movies
-        <stackname>         Name pattern for stacks [default: stack]
-        <min_max>           Minimum and max for color stretch [default: 0 8000]
-        <srcwin>            Source window of images [default: Full]
-        <resize>            Resize percentage 1-100 [default: 100]
-        <format>            Format for output images [default: PNG]
+        <stackname>         Name pattern for stacks [default: $stackname]
+        <min_max>           Minimum and max for color stretch [default: $min_max]
+        <srcwin>            Source window of images [default: $srcwin]
+        <resize>            Resize percentage 1-100 [default: $resize]
+        <format>            Format for output images [default: $format]
+
+    Options:
+        -s                  Point size for YEAR-DOY [default: $ptsize]
+        -o                  Overwrite [default: $overwrite]
+        -h                  Show help
+
+    Example:
+        $0 images/ movies/ stack "0 5000"
 
 EOF
 }
 
-module load ffmpeg
+while getopts "ho:s:" opt; do
+    case $opt in
+    h)
+        usage
+        exit 0
+        ;;
+    o)
+        overwrite=$OPTARG
+        ;;
+    s)
+        ptsize=$OPTARG
+        ;;
+    *)
+        echo "Error - unknown option $opt"
+        usage
+        exit 1
+        ;;
+    esac
+done
 
-script=/usr3/graduate/ceholden/code/BrowseImage/gen_preview.py
+shift $(($OPTIND - 1))
+
+# Test existence of 'ffmpeg'
+command -v ffmpeg >/dev/null 2>&1 || {
+    # Try loading module
+    set -e
+    module load ffmpeg
+    set +e
+    command -v ffmpeg >/dev/null 2>&1 || {
+        echo >&2 "I require 'ffmpeg' but it's not installed.  Aborting."
+        exit 1
+    }
+}
+
+
+# gen_preview.py script should be located right next to this script
+script=$(dirname $0)/gen_preview.py
+if [ ! -f $script ]; then
+    echo >&2 "Error - cannot find 'gen_preview.py' script."
+    exit 1
+fi
 
 ################################################################################
 if [ $# -lt 2 ]; then
-    echo "Error - must specify <input> and <output>"
+    echo >&2 "Error - must specify <input> and <output>"
     usage
     exit 1
 fi
 # Parse required arguments
 there=$(readlink -f $1)
 if [ ! -d $there ]; then
-    echo "Error: <input> is not a directory"
+    echo >&2 "Error: <input> is not a directory"
     exit 1
 fi
 
 here=$(readlink -f $2)
 if [ ! -d $here ]; then
-    echo "Error: <output> is not a directory"
+    echo >&2 "Error: <output> is not a directory"
     exit 1
 fi
 
@@ -58,7 +112,7 @@ else
 fi
 n=$(echo $min_max | awk '{n=split($0, a, " ")} END { print n }')
 if [ $n -ne 2 ]; then
-    echo "Must specify min and max separated by space"
+    echo >&2 "Must specify min and max separated by space"
     exit 1
 fi
 
@@ -70,7 +124,7 @@ fi
 if [ "$srcwin" != "Full" ]; then
     n=$(echo $srcwin | awk '{n=split($0, a, " ")} END { print n }')
     if [ $n -ne 4 ]; then
-        echo "Must specify 4 values in srcwin separated by spaces"
+        echo >&2 "Must specify 4 values in srcwin separated by spaces"
         exit 1
     fi
 fi
@@ -86,7 +140,7 @@ if [ $# -lt 7 ]; then
 else
     format=$7
     if [ "$format" != "PNG" ] && [ "$format" != "JPEG" ]; then
-        echo "Error: unknown format - must be PNG or JPEG"
+        echo >&2 "Error: unknown format - must be PNG or JPEG"
         exit 1
     fi
 fi
@@ -97,11 +151,11 @@ if [ "$format" == "PNG" ]; then
 elif [ "$format" == "JPEG" ]; then
     ext=".jpg"
 else
-    echo "Error: Unknown format"
-    exit
+    echo >&2 "Error: Unknown format. Must be PNG or JPEG"
+    exit 1
 fi
 
-
+set -e
 ################################################################################
 # Find an example image for extent
 ex=$(find $there -name "*$stackname" | head -1)
@@ -151,11 +205,25 @@ for d in $dirs; do
     # Find stack
     stack=$(find $d -name "*$stackname" -exec readlink -f {} \;)
 
+    if [[ $overwrite -eq 0 && -f $here/$outname ]]; then
+        echo "Not overwriting $here/$outname"
+        let count+=1
+        let num+=1
+        continue
+    else
+        echo "Outputting to: $here/$outname"
+    fi
+
     # Make preview
     if [ $resize -ne 100 ]; then
-        $script -v --bands '5 4 3' --mask 8 --maskval '2 3 4 5' --ndv '-9999' --srcwin "$srcwin" --format "$format" --resize_pct $resize --manual "$min_max" $stack $here/$outname
+        $script --bands '5 4 3' --mask 8 --maskval '2 3 4 5' --ndv '-9999' \
+            --srcwin "$srcwin" --format "$format" \
+            --resize_pct $resize --manual "$min_max" \
+            $stack $here/$outname
     else
-        $script -v --bands '5 4 3' --mask 8 --maskval '2 3 4 5' --ndv '-9999' --srcwin "$srcwin" --format "$format" --manual "$min_max" $stack $here/$outname
+        $script --bands '5 4 3' --mask 8 --maskval '2 3 4 5' --ndv '-9999' \
+            --srcwin "$srcwin" --format "$format" --manual "$min_max" \
+            $stack $here/$outname
     fi
 
     if [ $? -ne 0 ]; then
@@ -170,15 +238,17 @@ for d in $dirs; do
 done
 
 # Use ImageMagick to burn YEAR-DOY into bottom of image
-mkdir $here/processed/
-mkdir $here/to_mpeg/
+echo "Burning YEAR-DOY into image"
+
+mkdir -p $here/processed/
+mkdir -p $here/to_mpeg/
 for img in $(find $here/*${ext}); do
     # Parse info
     name=$(basename $img)
     yeardoy=$(echo $name | tr -d "${ext}" | awk -F '_' '{ print $2 }')
     id=$(echo $name | awk -F '_' '{ print $1 }')
     # Convert
-    convert $img -pointsize 128 -gravity South -fill red -annotate 0 "$yeardoy" $here/to_mpeg/${id}${ext}
+    convert $img -pointsize $ptsize -gravity South -fill red -annotate 0 "$yeardoy" $here/to_mpeg/${id}${ext}
     # Move old image
    mv $img $here/processed/
 done
@@ -190,11 +260,12 @@ w=$(gdalinfo 0001${ext} | grep "Size is" | tr -d "Size is" | awk -F ',' '{ print
 h=$(gdalinfo 0001${ext} | grep "Size is" | tr -d "Size is" | awk -F ',' '{ print $2 }')
 
 # ffmpeg
+echo "Making movie with FFMPEG"
 
 if [[ $((w%2)) -eq 0 || $((h%2)) -eq 0 ]]; then
-    ffmpeg -r 2 -i "%04d${ext}" -c:v libx264 -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -pix_fmt yuv420p ../movie.mp4
+    ffmpeg -y -r 2 -i "%04d${ext}" -c:v libx264 -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -pix_fmt yuv420p ../movie.mp4
 else
-    ffmpeg -r 2 -i "%04d${ext}" -c:v libx264 -pix_fmt yuv420p ../movie.mp4
+    ffmpeg -y -r 2 -i "%04d${ext}" -c:v libx264 -pix_fmt yuv420p ../movie.mp4
 fi
 
 find $here -name '*xml' -delete
