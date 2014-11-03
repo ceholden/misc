@@ -14,8 +14,6 @@
 #
 ###
 
-module load gdal/1.10.0
-
 line_num=''
 
 function usage {
@@ -51,10 +49,13 @@ function addSources {
     #   12/19/2013 - option to use Qingsong's LC8 version of LEDAPS
 	#   08/01/2014 - use Eric Vermote's LDCM SR
 	###
-    . /usr/local/Modules/default/init/sh
+    if [ -f /usr/local/Modules/default/init/bash ]; then
+        . /usr/local/Modules/default/init/bash
+    fi
 
     module load LDCM-SR/v1.3
     module load ledaps/20120925
+    module load gdal/1.10.0
 }
 
 # Custom exit failure setup
