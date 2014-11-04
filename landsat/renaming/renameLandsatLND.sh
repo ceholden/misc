@@ -21,7 +21,7 @@ l_dir=`find . -maxdepth 1 -name 'L*' -exec basename {} \;`
 for l in $l_dir
 do
 	if [ $to_lnd -eq "0" ]; then
-		repl=`find $l -maxdepth 1 -name 'L*.tar.gz' -exec basename {} \;`
+		repl=`find $l -maxdepth 1 -name 'L*.tar.*z' -exec basename {} \;`
 		repl=${repl:0:3}
 	fi	
 	# Find first three char of each ID
