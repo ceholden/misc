@@ -47,10 +47,10 @@ You may specify the output extent of your timeseries of imagery in the following
 ## Full Usage:
 
     Stack Landsat Data
-    
+
     Usage: landsat_stack.py [options] (--max_extent | --min_extent |
         --extent=<extent> | --percentile=<pct> | --image=<image>) <location>
-    
+
     Options:
         -f --files=<files>...       Files to stack [default: lndsr.*.hdf *Fmask]
         -b --bands=<bands>...       Bands from files to stack [default: all]
@@ -61,14 +61,42 @@ You may specify the output extent of your timeseries of imagery in the following
         -u --utm=<zone>             Force a UTM zone (in WGS84)
         -e --exit-on-warn           Exit on warning messages
         --format=<format>           GDAL format [default: ENVI]
-        --co=<creation options>     GDAL creation options [default: None]
+        --co=<creation options>     GDAL creation options
         -v --verbose                Show verbose debugging messages
         -q --quiet                  Be quiet by not showing warnings
         --dry-run                   Dry run - don't actually stack
         -h --help                   Show help
-    
+
     Examples:
-        landsat_stack.py -vq -n "-9999; 255" -b "1 2 3 4 5 6 15; 1" --min_extent ./    
+
+        Stack the optical bands and thermal band from a LEDAPS surface
+        reflectance HDF image together with a Fmask image for every Landsat
+        acquistion within the current directory. The NoData values for the
+        LEDAPS bands and Fmask band will be -9999 and 255, respectively. The
+        output stack images will have an extent equal to the minimum area
+        covered by all the Landsat acquistions (e.g., the intersection of
+        the areas):
+
+        > landsat_stack.py -n "-9999; 255" -b "1 2 3 4 5 6 15; 1" --min_extent ./
+
+        Stack the optical bands from a set of LEDAPS surface reflectance
+        GeoTIFFs together with a Fmask image for every Landsat acquistion within
+        the directory named "images". Since each image file contains only one
+        band, the default argument 'all' for the "--bands" option is not
+        changed. The NoData values will need to be specified for each band.
+        The output extent of the resulting stacked images corresponds to the
+        1% and 99% percentile of extents. This extent will be similar to
+        the maximum extent, except in situations with few images that
+        contain drastically different extents. By using "--utm 19", the
+        output projection will be defined as the WGS84 UTM 19 zone
+        (EPSG:32619):
+
+        > sr="*sr*1.tif *sr*2.tif *sr*3.tif *sr*4.tif *sr*5.tif *sr*7.tif"
+        > fmask="*cfmask.tif"
+        > landsat_stack.py -f "$sr $fmask" \
+        ... --ndv "-9999; -9999; -9999; -9999; -9999; -9999; 255" \
+        ... --utm 19 --pickup \
+        ... --percentile 1 images/
 
 ## Source code
 
