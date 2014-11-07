@@ -2,7 +2,8 @@
 """ Generate preview image
 
 Usage:
-    gen_preview.py [options] (--linear_pct <pct> | --histeq | --manual <minmax>) \n\t<input> <output>
+    gen_preview.py [options] (--linear_pct <pct> | --histeq | --manual <minmax>)
+        <input> <output>
 
 Options:
     -b --bands <bands>              Bands for output image [default: 3 2 1]
@@ -19,6 +20,7 @@ Options:
     -v --verbose                    Print (verbose) debugging messages
     -q --quiet                      Do not print except for warnings/errors
     -h --help                       Show help
+
 """
 from __future__ import division, print_function
 
