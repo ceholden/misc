@@ -2,23 +2,39 @@
 """Erode map
 
 Erodes a classification map for identification of homogeneous landscape patches
-according to a given window size. Can further reduce size of classes by sampling
-each class.
+according to a given window size. Can further reduce size of classes by
+sampling each class.
 
 Usage:
-    erode_label.py [options] <input> <output>
+    erode_map.py [options] <input> <output>
 
 Options:
     -w --window=<w>     Convolution window size (must be odd) [default: 3]
-    -m --max=<max>...   Maximum number of pixels per class [default: None]
-    -n --ndv=<ndv>      No data value [default: -9999]
+    -m --max=<max>...   Maximum number of pixels per class
+    -n --ndv=<ndv>      Override output map NoDataValue
     -f --format=<f>     Output data format [default: GTiff]
     -v --debug          Show (verbose) debugging messages
     -h --help           Show help
 
 Examples:
-    erode_label.py -w 5 -n 0 -f ENVI input.bsq output.bsq
+
+    > erode_map.py -w 5 -n 0 -f ENVI input.bsq output.bsq
+
+Notes:
+
+    Optional argument "--max" may specify the maximum number of pixels in each
+    class in one of two ways:
+
+        1. One single value used for all classes (e.g., "--max 5")
+        2. One value per unmasked class with each value separated by spaces
+            or commas (e.g., in 3 class map, "--max 5, 10 ,5)"
+
 """
+from __future__ import print_function, division
+import logging
+import os
+import sys
+
 from docopt import docopt
 
 try:
@@ -28,30 +44,33 @@ except ImportError:
     import gdal
     from gdalconst import GA_ReadOnly
 
-import os
-import sys
-
 import scipy.ndimage
 import numpy as np
 
-DEBUG = False
+logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s',
+                    level=logging.INFO,
+                    datefmt='%H:%M:%S')
+logger = logging.getLogger(__name__)
+
 
 def process_map(in_name, out_name, out_driver, window, ndv, max_pix):
     """
     Opens map applies erosion filter and handles output of map
     """
-    # Open source input image 
+    # Open source input image
     src_ds = gdal.Open(in_name, GA_ReadOnly)
     if src_ds is None:
-        print 'Error: could not open {0}'.format(in_name)
+        print('Error: could not open {0}'.format(in_name))
         sys.exit(1)
 
     # Read map into NumPy array
-    map = src_ds.GetRasterBand(1).ReadAsArray()
-    
+    source_map = src_ds.GetRasterBand(1).ReadAsArray()
+    if not ndv:
+        ndv = src_ds.GetRasterBand(1).GetNoDataValue()
+
     # Create initial mask and masked map
-    mask = np.ma.masked_equal(map, ndv)
-    masked_map = map * (map != ndv)
+    mask = np.ma.masked_equal(source_map, ndv)
+    masked_map = source_map * (source_map != ndv)
 
     # Find unique values (classes) from map
     classes = np.unique(mask.compressed())
@@ -60,15 +79,15 @@ def process_map(in_name, out_name, out_driver, window, ndv, max_pix):
     #   1. max_pix is None
     #   2. max_pix has 1 value for all classes
     #   3. max_pix has values for all classes
-    if (max_pix is not None and 
-            len(max_pix) != 1 and 
+    if (max_pix is not None and
+            len(max_pix) != 1 and
             len(max_pix) != len(classes)):
-        print 'Error: must specify maximum number of pixels for each class \
-            individually or specify one number for all classes'
-        print '        {n} classes in map'.format(n=len(classes))
-        print '        {n} maximum pixel counts given'.format(n=len(max_pix))
-        print '        classes:'
-        print classes
+        print('Error: must specify maximum number of pixels for each class'
+              'individually or specify one number for all classes')
+        print('        {n} classes in map'.format(n=len(classes)))
+        print('        {n} maximum pixel counts given'.format(n=len(max_pix)))
+        print('        classes:')
+        print(classes)
         sys.exit(1)
 
     # Setup output matrix for erosion
@@ -90,19 +109,16 @@ def process_map(in_name, out_name, out_driver, window, ndv, max_pix):
             else:
                 m = max_pix[i]
 
-            if DEBUG:
-                print 'Sampling class {u} to {n} pixels'.format(
-                    u=u, n=m)
+            logger.debug('Sampling class {u} to {n} pixels'.format(u=u, n=m))
 
             # Find number of pixels
             n_pix = np.sum(eroded)
 
             # Iterate until smaller than specified
             if n_pix > m:
-                if DEBUG:
-                    print '   Sampling class {u}'.format(u=u)
-                    print '        {n} > {m}'.format(n=n_pix, m=m)
-                
+                logger.debug('   Sampling class {u}'.format(u=u))
+                logger.debug('        {n} > {m}'.format(n=n_pix, m=m))
+
                 # Sample
                 ind = np.ravel_multi_index(np.where(eroded == 1), eroded.shape)
 
@@ -115,11 +131,10 @@ def process_map(in_name, out_name, out_driver, window, ndv, max_pix):
 #                eroded = scipy.ndimage.morphology.binary_erosion(eroded)
                 # Recalculate
                 n_pix = np.sum(eroded)
-            
-            if DEBUG:
-                print 'Finished sampling class {u} to size {n}'.format(
-                    u=u, n=n_pix)
-        
+
+            logger.debug('Finished sampling class {u} to size {n}'.format(
+                u=u, n=n_pix))
+
         # Add in this class to full map
         map_erode = map_erode + eroded * u
 
@@ -127,18 +142,18 @@ def process_map(in_name, out_name, out_driver, window, ndv, max_pix):
     del(eroded)
 
     # Add NDV back in
-    unmasked_erode = ndv * (map == ndv) + map_erode
-    
-    dst_ds = out_driver.Create(out_name, 
+    unmasked_erode = ndv * (source_map == ndv) + map_erode
+
+    dst_ds = out_driver.Create(out_name,
                                src_ds.RasterXSize, src_ds.RasterYSize,
                                1, src_ds.GetRasterBand(1).DataType)
     if dst_ds is None:
-        print 'Error: could not write to {0}'.format(out_name)
+        print('Error: could not write to {0}'.format(out_name))
         sys.exit(1)
-    
+
     # Write data
     dst_ds.GetRasterBand(1).SetNoDataValue(ndv)
-    dst_ds.GetRasterBand(1).WriteArray(unmasked_erode)   
+    dst_ds.GetRasterBand(1).WriteArray(unmasked_erode)
 
     # Write projection/etc
     dst_ds.SetProjection(src_ds.GetProjection())
@@ -148,6 +163,7 @@ def process_map(in_name, out_name, out_driver, window, ndv, max_pix):
     src_ds = None
     dst_ds = None
 
+
 def main():
     gdal.UseExceptions()
     gdal.AllRegister()
@@ -156,24 +172,22 @@ def main():
     try:
         window = int(window)
     except ValueError:
-        print 'Error: input window must be an integer'
+        print('Error: input window must be an integer')
         sys.exit(1)
     else:
         if window % 2 == 0:
-            print 'Error: window size must be an odd integer'
+            print('Error: window size must be an odd integer')
             sys.exit(1)
 
     # Maximum number of pixels per class
     max_pix = arguments['--max']
-    if max_pix == 'None':
-        max_pix = None
-    else:
+    if max_pix:
         try:
             max_pix = [int(m) for m in max_pix.replace(' ', ',').split(',')
                        if m != '']
         except:
-            print 'Error: could not convert maximum pixel input to array of \
-               integers'
+            print('Error: could not convert maximum pixel input to array of'
+                  'integers')
             sys.exit(1)
 
     # Input image
@@ -181,10 +195,10 @@ def main():
     if os.path.dirname(in_name) == '':
         in_name = './' + in_name
     if not os.path.exists(in_name):
-        print 'Could not find input image {0}'.format(in_name)
+        print('Could not find input image {0}'.format(in_name))
         sys.exit(1)
     elif not os.access(in_name, os.R_OK):
-        print 'Cannot read input image {0}'.format(in_name)
+        print('Cannot read input image {0}'.format(in_name))
         sys.exit(1)
 
     # Output image
@@ -193,38 +207,36 @@ def main():
         out_name = './' + out_name
     if os.path.exists(out_name):
         if not os.access(out_name, os.W_OK):
-            print 'Error: output image exists and cannot overwrite'
+            print('Error: output image exists and cannot overwrite')
             sys.exit(1)
     else:
         if not os.access(os.path.dirname(out_name), os.W_OK):
-            print 'Cannot write to output image {0}'.format(out_name)
+            print('Cannot write to output image {0}'.format(out_name))
             sys.exit(1)
-    
+
     # Output image driver
     format = arguments['--format']
     out_driver = gdal.GetDriverByName(format)
     if out_driver is None:
-        print 'Error: could not create driver for format {f}'.format(f=format)
+        print('Error: could not create driver for format {f}'.format(f=format))
         sys.exit(1)
 
     # NoData value
     ndv = arguments['--ndv']
-    try:
-        ndv = int(ndv)
-    except ValueError:
-        print 'Error: Nodata value must be an integer'
-        sys.exit(1)
-    
+    if ndv:
+        try:
+            ndv = int(ndv)
+        except ValueError:
+            print('Error: Nodata value must be an integer')
+            sys.exit(1)
+
     ## perform file handling and send to erosion function
     process_map(in_name, out_name, out_driver, window, ndv, max_pix)
+
 
 if __name__ == '__main__':
     arguments = docopt(__doc__)
     if arguments['--debug']:
-        DEBUG = True
-    if DEBUG:
-        print 'User inputs:'
-        for k, v in arguments.iteritems():
-            print '{k} : {v}' .format(k=k, v=v)
-    main()
+        logger.setLevel(logging.DEBUG)
 
+    main()
