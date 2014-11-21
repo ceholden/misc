@@ -141,7 +141,9 @@ def main():
             except ValueError:
                 print 'Error: mask values must be numeric int or float'
                 sys.exit(1)
-    
+    else:
+        print "Warning: no mask values specified; only using NDV"
+
     # Image stack name pattern
     stkname = arguments['--name']
     if '*' not in stkname:
