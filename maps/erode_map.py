@@ -76,6 +76,8 @@ def process_map(in_name, out_name, out_driver, window, ndv, max_pix,
     # If user hasn't overriden datatype, get from map in map's datatype
     if not ndv:
         ndv = src_ds.GetRasterBand(1).GetNoDataValue()
+        if not ndv:
+            ndv = 0
         ndv = gdal_array.GDALTypeCodeToNumericTypeCode(src_datatype)(ndv)
 
     # Create initial mask and masked map
@@ -168,7 +170,7 @@ def process_map(in_name, out_name, out_driver, window, ndv, max_pix,
     # Find output datatype -- upcast map or label to match biggest
     np_dtype = (np.promote_types(unmasked_erode.dtype, lab.dtype) if label
                 else unmasked_erode.dtype)
-    gdal_dtype = gdal_array.NumericTypeCodeToGDALTypeCode(np_dtype)
+    gdal_dtype = gdal_array.NumericTypeCodeToGDALTypeCode(np_dtype.type)
 
     nbands = 2 if label else 1
 
