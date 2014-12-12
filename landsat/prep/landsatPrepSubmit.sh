@@ -269,7 +269,7 @@ function create_jobs {
 
     ### Submit jobs
     # Set counters
-    NJobsRun=`qstat -u $USERID | grep $JOBNAME | awk '{print $5}' | wc -l`
+    NJobsRun=`qstat -u $USERID | grep ${JOBNAME:0:9} | awk '{print $5}' | wc -l`
     # NOTE: NJobsSub set to 0 for reporting
     #       scene_num=(NJobsSub + 1) used for line numbers and scriptID
     NJobsSub=0
@@ -280,11 +280,11 @@ function create_jobs {
     while [ "$NJobsSub" -lt $Nscene ];
     do
         # Get jobs in SGE queue
-        NJobsRun=`qstat -u $USERID | grep $JOBNAME | awk '{print $5}' | wc -l`
+        NJobsRun=`qstat -u $USERID | grep ${JOBNAME:0:9} | awk '{print $5}' | wc -l`
         # Get jobs running in SGE queue
-        NJobsRunning=`qstat -u $USERID | grep $JOBNAME | awk '{print $5}' | 
+        NJobsRunning=`qstat -u $USERID | grep ${JOBNAME:0:9} | awk '{print $5}' | 
             grep r | wc -l`
-        NJobsWaiting=`qstat -u $USERID | grep $JOBNAME | awk '{print $5}' | 
+        NJobsWaiting=`qstat -u $USERID | grep ${JOBNAME:0:9} | awk '{print $5}' | 
             grep qw | wc -l`
 
         # Check if NJobsRun < NJobsMax
