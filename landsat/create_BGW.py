@@ -70,26 +70,47 @@ def calc_BGW(image_fn, output, fformat='GTiff',
     # Open input image
     image_ds = gdal.Open(image_fn, gdal.GA_ReadOnly)
 
-    # Init BGW
-    BGW = np.zeros((image_ds.RasterYSize, image_ds.RasterXSize, 3), 
-        dtype=gdal_array.GDALTypeCodeToNumericTypeCode(
-            image_ds.GetRasterBand(1).DataType))
+    n_band = bands.size + 3
 
-    # Init mask
-    mask = np.ones((image_ds.RasterYSize, image_ds.RasterXSize), dtype=np.uint8)
+    image = np.zeros((image_ds.RasterYSize, image_ds.RasterXSize, n_band),
+                    dtype=gdal_array.GDALTypeCodeToNumericTypeCode(
+                        image_ds.GetRasterBand(1).DataType))
 
-    # Loop through bands calculating BGW
     for i, b in enumerate(bands):
-        # Open band
-        band = image_ds.GetRasterBand(b).ReadAsArray()
+        image[:, :, i] = image_ds.GetRasterBand(b).ReadAsArray()
 
-        # Calculate BGW
-        BGW[:, :, 0] = BGW[:, :, 0] + band * refB[i]
-        BGW[:, :, 1] = BGW[:, :, 1] + band * refG[i]
-        BGW[:, :, 2] = BGW[:, :, 2] + band * refW[i]
+    test = image[2500:3000, 2500:3000, :]
 
-        # Update mask
-        mask = np.logical_and(mask == 1, band != ndv).astype(np.uint8)
+    from IPython.core.debugger import Pdb
+    Pdb().set_trace()
+
+    image[:, :, bands.size] = np.tensordot(image, refB, axis=(2, 0))
+    image[:, :, bands.size + 1] = np.tensordot(image, refG, axis=(2, 0))
+    image[:, :, bands.size + 2] = np.tensordot(image, refW, axis=(2, 0))
+
+    from IPython.core.debugger import Pdb
+    Pdb().set_trace()
+
+    # Init BGW
+#     BGW = np.zeros((image_ds.RasterYSize, image_ds.RasterXSize, 3), 
+#         dtype=gdal_array.GDALTypeCodeToNumericTypeCode(
+#             image_ds.GetRasterBand(1).DataType))
+# 
+#     # Init mask
+#     mask = np.ones((image_ds.RasterYSize, image_ds.RasterXSize), dtype=np.uint8)
+# 
+#     # Loop through bands calculating BGW
+#     for i, b in enumerate(bands):
+#         # Open band
+#         band = image_ds.GetRasterBand(b).ReadAsArray()
+# 
+#         # Calculate BGW
+#         BGW[:, :, 0] = BGW[:, :, 0] + band * refB[i]
+#         BGW[:, :, 1] = BGW[:, :, 1] + band * refG[i]
+#         BGW[:, :, 2] = BGW[:, :, 2] + band * refW[i]
+# 
+#         # Update mask
+#         mask = np.logical_and(mask == 1, band != ndv).astype(np.uint8)
 
     # Apply mask
     masked = (mask == 0)
@@ -121,6 +142,10 @@ n = len(dirs)
 
 print 'Creating BGW images'
 for i, (d, s) in enumerate(zip(dirs, stacks)):
+    
+    if 'LC8' in s:
+        continue
+
     dirname = os.path.dirname(s)
 
     out_fn = os.path.join(dirname, d + '_BGW.bsq')
