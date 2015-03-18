@@ -144,8 +144,8 @@ function checkMTLold {
 
 function checkL1G {
 	# Check if image is L1G and not L1T
-	l1g=`grep -a "L1G" $metadata`
-	if [[ "$l1g" == *L1G* ]]; then
+	l1g=$(grep -a 'DATA_TYPE.*"L1G"' $metadata)
+	if [ ! -z "$l1g" ]; then
 		echo "This image is L1G. Exiting"
 		echo "Image $metadata is L1G" > L1G_fail.log
 		# Removing TIF files
