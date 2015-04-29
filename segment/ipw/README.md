@@ -1,5 +1,7 @@
 # IPW Segmentation Helper Scripts
 
+**UPDATE**: The segmentation program in IPW has been modernized to use GDAL for image input and output and is [available here](https://github.com/ceholden/segment). As such, these Bash scripts are no longer useful unless using the older version of `segment` still embedded within IPW.
+
 ## About
 
 These two scripts - `batch_segment.sh` and `apply_segment.sh` - wrap the `segment` image segmentation program from the Image Processing Workbench (IPW) toolbox.
