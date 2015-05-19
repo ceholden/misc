@@ -261,7 +261,7 @@ _context = dict(
                 type=click.Choice(_transforms),
                 metavar='<transform>')
 def create_transform(src, dst, transforms,
-                     stretch, format, dtype, scaling, sensor,
+                     format, dtype, scaling, sensor,
                      blue, green, red, nir, swir1, swir2,
                      verbose):
     if not transforms:
