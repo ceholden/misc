@@ -4,34 +4,27 @@ from __future__ import division, print_function
 from collections import OrderedDict
 import inspect
 import logging
-import os
 import sys
 
 import click
 import numexpr as ne
 import numpy as np
-from osgeo import gdal
+from osgeo import gdal, gdal_array
 
 __version__ = '0.1.0'
 
 FORMAT = '%(asctime)s:%(levelname)s:%(module)s.%(funcName)s:%(message)s'
 logging.basicConfig(format=FORMAT, level=logging.INFO, datefmt='%H:%M:%S')
-logger = logging.getLogger('yatsm')
+logger = logging.getLogger('transforms')
 
 gdal.UseExceptions()
 gdal.AllRegister()
 
-# Default bands for Landsat
-_BLUE = 1
-_GREEN = 2
-_RED = 3
-_NIR = 4
-_SWIR1 = 5
-_SWIR2 = 6
-
-# TRANSFORMS
+_np_dtypes = ['uint8', 'uint16', 'int16', 'uint32', 'int32',
+             'float32', 'float64']
 _transforms = ['evi', 'ndvi', 'ndmi', 'nbr',
                'brightness', 'greenness', 'wetness']
+
 # Crist 1985
 _lt5_bgw = [
     np.array([0.2043, 0.4158, 0.5524, 0.5741, 0.3124, 0.2330]),
@@ -231,28 +224,28 @@ _context = dict(
 
 
 @click.command(context_settings=_context)
-@click.option('-f', '--format', default='GTiff',
-              help='Output file format', metavar='<str>')
-@click.option('--scaling', default=1.0, type=float,
-              help='Scaling factor for reflectance (e.g., 10,000)',
-              metavar='<scaling>')
-@click.option('--sensor', default='LT5', type=str,
-              help='Landsat sensor type (for Tasseled Cap coefficients)',
-              metavar='<sensor>')
-@click.option('--blue', callback=_valid_band, default=_BLUE,
-              help='Band number for blue band in <src>', metavar='<int>')
-@click.option('--green', callback=_valid_band, default=_GREEN,
-              help='Band number for green band in <src>', metavar='<int>')
-@click.option('--red', callback=_valid_band, default=_RED,
-              help='Band number for red band in <src>', metavar='<int>')
-@click.option('--nir', callback=_valid_band, default=_NIR,
-              help='Band number for near IR band in <src>', metavar='<int>')
-@click.option('--swir1', callback=_valid_band, default=_SWIR1,
-              help='Band number for first shortwave IR band in <src>',
-              metavar='<int>')
-@click.option('--swir2', callback=_valid_band, default=_SWIR2,
-              help='Band number for second shortwave IR band in <src>',
-              metavar='<int>')
+@click.option('-f', '--format', default='GTiff', metavar='<str>',
+              help='Output file format (default: GTiff)')
+@click.option('-ot', '--dtype',
+              type=click.Choice(_np_dtypes),
+              default=None, metavar='<dtype>',
+              help='Output data type (default: None)')
+@click.option('--scaling', default=10000, type=float, metavar='<scaling>',
+              help='Scaling factor for reflectance (default: 10,000)')
+@click.option('--sensor', default='LT5', type=str, metavar='<sensor>',
+              help='Landsat sensor type (for Tasseled Cap) (default: LT5)')
+@click.option('--blue', callback=_valid_band, default=1, metavar='<int>',
+              help='Band number for blue band in <src> (default: 1)')
+@click.option('--green', callback=_valid_band, default=2, metavar='<int>',
+              help='Band number for green band in <src> (default: 2)')
+@click.option('--red', callback=_valid_band, default=3, metavar='<int>',
+              help='Band number for red band in <src> (default: 3)')
+@click.option('--nir', callback=_valid_band, default=4, metavar='<int>',
+              help='Band number for near IR band in <src> (default: 4)')
+@click.option('--swir1', callback=_valid_band, default=5, metavar='<int>',
+              help='Band number for first SWIR band in <src> (default: 5)')
+@click.option('--swir2', callback=_valid_band, default=6, metavar='<int>',
+              help='Band number for second SWIR band in <src> (default: 6)')
 @click.option('-v', '--verbose', is_flag=True,
               help='Show verbose messages')
 @click.version_option(__version__)
@@ -268,7 +261,7 @@ _context = dict(
                 type=click.Choice(_transforms),
                 metavar='<transform>')
 def create_transform(src, dst, transforms,
-                     format, scaling, sensor,
+                     stretch, format, dtype, scaling, sensor,
                      blue, green, red, nir, swir1, swir2,
                      verbose):
     if not transforms:
@@ -292,13 +285,19 @@ def create_transform(src, dst, transforms,
         raise
     driver = gdal.GetDriverByName(str(format))
 
+    # If no output dtype selected, default to input image dtype
+    if not dtype:
+        dtype = gdal_array.GDALTypeCodeToNumericTypeCode(
+            ds.GetRasterBand(1).DataType)
+    dtype = np.dtype(dtype)
+    gdal_dtype = gdal_array.NumericTypeCodeToGDALTypeCode(dtype)
+
     # Only read in the bands that are required for the transforms
     required_bands = set()
     for t in transform_funcs:
         required_bands.update(t.required_bands)
 
     func_args = inspect.getargvalues(inspect.currentframe())[-1]
-
     transform_args = dict.fromkeys(required_bands)
     for b in transform_args.keys():
         idx = func_args[b]
@@ -309,7 +308,6 @@ def create_transform(src, dst, transforms,
     transform_args['sensor'] = sensor
 
     # Create transforms
-    # transforms = dict.fromkeys([t.transform_name for t in transform_funcs])
     transforms = OrderedDict([
         [t.transform_name, t(**transform_args)] for t in transform_funcs
         if t.transform_name.lower() in transforms
@@ -319,8 +317,7 @@ def create_transform(src, dst, transforms,
     # Write output
     nbands = len(transforms.keys())
     out_ds = driver.Create(dst,
-                           ds.RasterXSize, ds.RasterYSize, nbands,
-                           ds.GetRasterBand(1).DataType)
+                           ds.RasterXSize, ds.RasterYSize, nbands, gdal_dtype)
     metadata = {}
     for i_b, (name, array) in enumerate(transforms.iteritems()):
         r_band = out_ds.GetRasterBand(i_b + 1)
