@@ -1,25 +1,67 @@
 #!/bin/sh
 
+set +e 
+
+usage () {
+    cat << EOF
+
+    usage: $0 <input_dir> <output_dir>
+
+    Author: Chris Holden (ceholden@gmail.com)
+
+    Purpose: Compress a Landsat stack directory to archival directoy
+
+    Options:
+        -r          Resume - don't overwrite existing archives (default: 1)
+        -n          Number of CPUs to use (default: '$NSLOTS' or 4)
+        -h          Show help
+EOF
+    exit 1
+}
+
 resume=1
-
-# Multithreaded bzip2
-zip=/net/casfsb/vol/ssrchome/active_users/ceholden/tools/pbzip2/bin/pbzip2
-
-# Location of backup
-backup=/net/archive/ifs/archive/project/modislc/archive/IDS_stacks
-
-# Set path/row to input $1
-pr=$1
-if [ ! -d $pr ]; then
-	echo "Error: no such directory"
-	exit 1
-else
-	echo "Backing up $pr with $NSLOTS processors"
-	cd $pr
+ncpu=4
+if [ ! -z $NSLOTS ]; then
+    ncpu=$NSLOTS
 fi
 
+# Parse opts and args
+while getopts ":r:n:h" o; do
+    case "${o}" in
+        r)
+            resume=${OPTARG}
+            ((s != 1 || s != 0) || usage)
+            ;;
+        n)
+            ncpu=${OPTARG}
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND-1))
+
+if [ -z $1 ] || [ -z $2 ]; then
+    usage
+fi
+
+input=$1
+output=$2
+
+if [ ! -d $input ]; then
+    echo "Error: <input_dir> $input is not a directory"
+    usage
+fi
+if [ ! -d $output ]; then
+    echo "Error: <output_dir> $output is not a directory"
+    usage
+fi
+
+echo "Backing up $input with $ncpu processors"
+
 # If path/row folder exists, create folder for it in archive space
-backup=$backup/$pr
+backup=$output/$(basename $input)
 if [ ! -d $backup ]; then
 	mkdir $backup
 	if [ `echo $?` == 0 ]; then
@@ -32,10 +74,10 @@ else
 	echo "Backing up to $backup"
 fi
 	
-
+cd $input
 # Go into stack folder 'images'
 if [ ! -d images/ ]; then
-	echo "Could not find stack folder 'images'"
+	echo "Could not find stack folder 'images' within $input"
 	exit 1
 else
 	cd images/
@@ -77,7 +119,7 @@ for stack in $stacks; do
 	
 	# Multithread bzip2 the archive (don't keep tar)
 	echo "Zipping using pbzip2"
-	tar -c $files | $zip -c -q -p${NSLOTS} > archive_tmp/$stack.tar.bz2
+	tar -c $files | pbzip2 -c -q -p${ncpu} > archive_tmp/$stack.tar.bz2
 	if [ `echo $?` != 0 ]; then
 		echo "Error compressing archive for $stack"
 		exit 1
@@ -85,12 +127,13 @@ for stack in $stacks; do
 
 	# Rsync to backup location
 	echo "Copying to backup location"
-	rsync -av --remove-source-files archive_tmp/$stack.tar.bz2 $backup
+	rsync -a --remove-source-files archive_tmp/$stack.tar.bz2 $backup
 	if [ `echo $?` != 0 ]; then
 		echo "Error rsyncing $stack"
 		exit 1
 	fi
-
+    
+    rm archive_tmp/$stack.tar.bz2
 	let count+=1
 done
 
