@@ -12,9 +12,9 @@ usage () {
     Purpose: Compress a Landsat stack directory to archival directoy
 
     Options:
-        -r          Resume - don't overwrite existing archives (default: 1)
-        -n          Number of CPUs to use (default: '$NSLOTS' or 4)
-        -h          Show help
+        -r      Resume - don't overwrite existing archives (default: 1)
+        -n      Number of CPUs to use (default: NSLOTS if set on SGE, or 4)
+        -h      Show help
 EOF
     exit 1
 }
