@@ -1,16 +1,6 @@
-#!/usr/bin/env python
-# /*****************************************************************************
-# * Name:       object_stats.py
-# * Author:     Chris Holden (ceholden@gmail.com)
-# * Version:    1.0
-# * Purpose:    To read an image and segmentation image using GDAL and to
-# *             calculate statistics for each segment using the image.
-# * Methods:    Use GDAL (gdal.org) to read the images and import into numpy
-# *             arrays. Next, use find_objects to get i, j coordinates in image
-# *             of pixels in i=1:n segments. Finally, use ndimage library
-# *             to calculate statistic for given segment.
-# *
-# *****************************************************************************\
+#!/usr/bin/env python2
+""" object_stats.py -- calculate image statistics for segments
+"""
 from __future__ import division, print_function
 import argparse
 import logging
