@@ -15,6 +15,8 @@ __version__ = '1.0.0'
 
 gdal.AllRegister()
 gdal.UseExceptions()
+ogr.RegisterAll()
+ogr.UseExceptions()
 
 logging.basicConfig(format='%(asctime)s.%(levelname)s: %(message)s',
                     level=logging.INFO,
@@ -61,7 +63,7 @@ def objstats(args):
 
     # Create artificial 'FID' field
     fid_layer = seg_ds.ExecuteSQL(
-        'select FID, * from {l}'.format(l=seg_layer.GetName()))
+        'select FID, * from "{l}"'.format(l=seg_layer.GetName()))
     gdal.RasterizeLayer(mem_raster, [1], fid_layer, options=['ATTRIBUTE=FID'])
     logger.debug('Rasterized segment vector file')
 
