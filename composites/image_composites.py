@@ -116,16 +116,19 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
 
         Use the built-in maxNDVI algorithm:
 
+        \b
         $ image_composite.py --algo maxNDVI -o composite_maxNDVI.gtif
             image1.gtif image2.gtif image3.gtif
 
         or with S-expression:
 
+        \b
         $ image_composite.py --expr '(max (/ (- nir red) (+ nir red)))'
             -o composite_maxNDVI.gtif image1.gtif image2.gtif image3.gtif
 
         or with S-expressions using the normdiff shortcut:
 
+        \b
         $ image_composite.py --expr '(max (normdiff nir red))'
             -o composite_maxNDVI.gtif image1.gtif image2.gtif image3.gtif
 
@@ -133,14 +136,16 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
 
         With S-expression:
 
+        \b
         $ evi='(median (/ (- nir red) (+ (- (+ nir (* 6 red)) (* 7.5 blue)) 1)))'
-        $ image_composite.py --expr "$evi" -o composite_medianEVI.gtif \
+        $ image_composite.py --expr "$evi" -o composite_medianEVI.gtif
             image1.gtif image2.gtif image3.gtif
 
     3. Create a composite based on median NBR
 
         With S-expression:
 
+        \b
         $ image_composite.py --expr '(median (normdiff nir sswir))'
             -o composite_maxNBR.gtif image1.gtif image2.gtif image3.gtif
 
