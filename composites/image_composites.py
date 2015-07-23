@@ -15,6 +15,7 @@ import logging
 
 import click
 import numpy as np
+import progressbar
 import rasterio
 from rasterio.rio.options import _cb_key_val, creation_options
 import snuggs
@@ -82,10 +83,12 @@ def _valid_band(ctx, param, value):
               metavar='NAME=INDEX',
               help='Name and band number in INPUTS for additional bands')
 @click.option('-v', '--verbose', is_flag=True, help='Show verbose messages')
+@click.option('-q', '--quiet', is_flag=True,
+              help='Do not show progress or messages')
 @click.version_option(__version__)
 def image_composite(inputs, algo, expr, output, oformat, creation_options,
                     blue, green, red, nir, fswir, sswir, band,
-                    verbose):
+                    verbose, quiet):
     """ Create image composites based on some criteria
 
     Output image composites retain original values from input images that meet
@@ -152,6 +155,8 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
     """
     if verbose:
         logger.setLevel(logging.DEBUG)
+    elif quiet:
+        logger.setLevel(logging.ERROR)
 
     # Prefer built-in algorithms to expressions if both are specified
     if not algo and not expr:
@@ -163,7 +168,9 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
     elif algo is not None:
         logger.debug('Using predefined algorithm: {}'.format(algo))
         expr = _ALGO[algo]
-    logger.info('Compositing criteria S-expression: {}'.format(expr))
+
+    if not quiet:
+        click.echo('Compositing criteria S-expression: "{}"'.format(expr))
 
     # Setup band keywords
     _bands = {'blue': blue, 'green': green, 'red': red,
@@ -203,6 +210,8 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
                 raise click.Abort()
             block_nrow, block_ncol = first.block_shapes[0]
             windows = first.block_windows(1)
+            n_windows = (meta['height'] / block_nrow *
+                         meta['width'] / block_ncol)
 
         # Initialize output data and create composite
         with rasterio.open(output, 'w', **meta) as dst:
@@ -215,6 +224,14 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
             # Open all source files one time
             srcs = [rasterio.open(fname) for fname in inputs]
 
+            logger.debug('Processing blocks')
+
+            widgets = [
+                progressbar.Percentage(),
+                progressbar.BouncingBar(marker=progressbar.RotatingMarker())
+            ]
+
+            pbar = progressbar.ProgressBar(widgets=widgets).start()
             for i, (idx, window) in enumerate(windows):
                 for j, src in enumerate(srcs):
                     dat[j, ...] = src.read(masked=True, window=window)
@@ -231,6 +248,8 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
                 for i_b in range(composite.shape[-1]):
                     dst.write(composite[:, :, i_b], indexes=i_b + 1,
                               window=window)
+                if not quiet:
+                    pbar.update(int((i + 1) / n_windows * 100))
 
 if __name__ == '__main__':
     image_composite()
