@@ -15,7 +15,12 @@ import logging
 
 import click
 import numpy as np
-import progressbar
+try:
+    import progressbar
+except:
+    _has_progressbar = False
+else:
+    _has_progressbar = True
 import rasterio
 from rasterio.rio.options import _cb_key_val, creation_options
 import snuggs
@@ -225,13 +230,13 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
             srcs = [rasterio.open(fname) for fname in inputs]
 
             logger.debug('Processing blocks')
+            if _has_progressbar and not quiet:
+                widgets = [
+                    progressbar.Percentage(),
+                    progressbar.BouncingBar(marker=progressbar.RotatingMarker())
+                ]
+                pbar = progressbar.ProgressBar(widgets=widgets).start()
 
-            widgets = [
-                progressbar.Percentage(),
-                progressbar.BouncingBar(marker=progressbar.RotatingMarker())
-            ]
-
-            pbar = progressbar.ProgressBar(widgets=widgets).start()
             for i, (idx, window) in enumerate(windows):
                 for j, src in enumerate(srcs):
                     dat[j, ...] = src.read(masked=True, window=window)
@@ -248,7 +253,7 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
                 for i_b in range(composite.shape[-1]):
                     dst.write(composite[:, :, i_b], indexes=i_b + 1,
                               window=window)
-                if not quiet:
+                if not quiet and _has_progressbar:
                     pbar.update(int((i + 1) / n_windows * 100))
 
 if __name__ == '__main__':
