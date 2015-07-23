@@ -2,10 +2,12 @@
 """ Image compositing script
 
 TODO:
-    - allow images to not be stacked
+    - use mask bands/values in input images in masked arrays
+    - make some system where vegetation indices can be inserted into expression
+        + '(max {NDVI})' and {NDVI} = '(/ (- nir red) (+ nir red))'
+    - allow images to not be stacked (see read's boundless option)
     - specify <projwin> for output composite
-    - allow user to specify algorithm, rather than using predefined ones
-    - parse more complicated expressions (e.g., min BLUE and max NDVI)
+
 """
 from __future__ import division, print_function
 
@@ -14,10 +16,11 @@ import logging
 import click
 import numpy as np
 import rasterio
-from rasterio.rio.options import _cb_key_val as _valid_keyval
+from rasterio.rio.options import _cb_key_val, creation_options
 import snuggs
 
-__version__ = '0.99.0'
+__author__ = 'Chris Holden (ceholden@gmail.com)'
+__version__ = '0.99.1'
 
 logging.basicConfig(format='%(asctime)s.%(levelname)s: %(message)s',
                     level=logging.INFO,
@@ -55,31 +58,33 @@ def _valid_band(ctx, param, value):
 @click.option('--algo', help='Create composite based on specific algorithm',
               type=click.Choice(_ALGO.keys()))
 @click.option('--expr', help='Create composite based on an expression',
-              type=str)
+              type=str, metavar='SNUGGS')
 @click.option('-o', '--output', help='Output image composite',
               type=click.Path(dir_okay=False, writable=True,
                               resolve_path=True),
               default='composite.gtif')
-@click.option('-of', '--format', help='Output image format',
+@click.option('-of', '--format', 'oformat', help='Output image format',
               default='GTiff')
-@click.option('--blue', callback=_valid_band, default=1, metavar='<int>',
-              help='Band number for blue band in <src> (default: 1)')
-@click.option('--green', callback=_valid_band, default=2, metavar='<int>',
-              help='Band number for green band in <src> (default: 2)')
-@click.option('--red', callback=_valid_band, default=3, metavar='<int>',
-              help='Band number for red band in <src> (default: 3)')
-@click.option('--nir', callback=_valid_band, default=4, metavar='<int>',
-              help='Band number for near IR band in <src> (default: 4)')
-@click.option('--swir1', callback=_valid_band, default=5, metavar='<int>',
-              help='Band number for first SWIR band in <src> (default: 5)')
-@click.option('--swir2', callback=_valid_band, default=6, metavar='<int>',
-              help='Band number for second SWIR band in <src> (default: 6)')
-@click.option('--band', callback=_valid_keyval, multiple=True, type=str,
-              help='Band name and index for additional bands')
+@creation_options
+@click.option('--blue', callback=_valid_band, default=1, type=int,
+              help='Band number for blue band in INPUTS (default: 1)')
+@click.option('--green', callback=_valid_band, default=2, type=int,
+              help='Band number for green band in INPUTS (default: 2)')
+@click.option('--red', callback=_valid_band, default=3, type=int,
+              help='Band number for red band in INPUTS (default: 3)')
+@click.option('--nir', callback=_valid_band, default=4, type=int,
+              help='Band number for near IR band in INPUTS (default: 4)')
+@click.option('--fswir', callback=_valid_band, default=5, type=int,
+              help='Band number for first SWIR band in INPUTS (default: 5)')
+@click.option('--sswir', callback=_valid_band, default=6, type=int,
+              help='Band number for second SWIR band in INPUTS (default: 6)')
+@click.option('--band', callback=_cb_key_val, multiple=True,
+              metavar='NAME=INDEX',
+              help='Name and band number in INPUTS for additional bands')
 @click.option('-v', '--verbose', is_flag=True, help='Show verbose messages')
 @click.version_option(__version__)
-def image_composite(inputs, algo, expr, output, format,
-                    blue, green, red, nir, swir1, swir2, band,
+def image_composite(inputs, algo, expr, output, oformat, creation_options,
+                    blue, green, red, nir, fswir, sswir, band,
                     verbose):
     """ Create image composites based on some criteria
 
@@ -89,8 +94,10 @@ def image_composite(inputs, algo, expr, output, format,
     input raster that had the highest NDVI value.
 
     Users can choose from a set of predefined compositing algorithms or may
-    specify an Snuggs S-expression that defines the compositing criteria. See
-    https://github.com/mapbox/snuggs for more information on Snuggs
+    specify an Snuggs S-expression that defines the compositing criteria.
+    Normalized Differenced indexes can be computed using "(normdiff a b)" for
+    the Normalized Difference between "a" and "b" (or "nir" and "red").
+    See https://github.com/mapbox/snuggs for more information on Snuggs
     expressions.
 
     The indexes for common optical bands (e.g., red, nir, blue) within the
@@ -107,7 +114,35 @@ def image_composite(inputs, algo, expr, output, format,
 
     1. Create a composite based on maximum NDVI
 
-        $ image_composite.py --algo maxNDVI image1.gtif image2.gtif image3.gtif
+        Use the built-in maxNDVI algorithm:
+
+        $ image_composite.py --algo maxNDVI -o composite_maxNDVI.gtif
+            image1.gtif image2.gtif image3.gtif
+
+        or with S-expression:
+
+        $ image_composite.py --expr '(max (/ (- nir red) (+ nir red)))'
+            -o composite_maxNDVI.gtif image1.gtif image2.gtif image3.gtif
+
+        or with S-expressions using the normdiff shortcut:
+
+        $ image_composite.py --expr '(max (normdiff nir red))'
+            -o composite_maxNDVI.gtif image1.gtif image2.gtif image3.gtif
+
+    2. Create a composite based on median EVI (not recommended)
+
+        With S-expression:
+
+        $ evi='(median (/ (- nir red) (+ (- (+ nir (* 6 red)) (* 7.5 blue)) 1)))'
+        $ image_composite.py --expr "$evi" -o composite_medianEVI.gtif \
+            image1.gtif image2.gtif image3.gtif
+
+    3. Create a composite based on median NBR
+
+        With S-expression:
+
+        $ image_composite.py --expr '(median (normdiff nir sswir))'
+            -o composite_maxNBR.gtif image1.gtif image2.gtif image3.gtif
 
     """
     if verbose:
@@ -127,7 +162,7 @@ def image_composite(inputs, algo, expr, output, format,
 
     # Setup band keywords
     _bands = {'blue': blue, 'green': green, 'red': red,
-              'nir': nir, 'swir1': swir1, 'swir2': swir2}
+              'nir': nir, 'fswir': fswir, 'sswir': sswir}
     # Parse any additional, user specified bands
     if band:
         for k, v in band.iteritems():
@@ -145,14 +180,18 @@ def image_composite(inputs, algo, expr, output, format,
     snuggs.func_map['min'] = lambda a: np.argmin(a, axis=0)
     snuggs.func_map['median'] = lambda a: np.argmin(
         np.abs(a - np.median(a, axis=0)), axis=0)
+    snuggs.func_map['normdiff'] = lambda a, b: snuggs.eval(
+        '(/ (- a b) (+ a b))', **{'a':a, 'b':b})
 
     with rasterio.drivers():
 
         # Read in the first image to fetch metadata
         with rasterio.open(inputs[0]) as first:
             meta = first.meta
-            meta.pop('transform')
-            meta.update(driver=format)
+            if 'transform' in meta:
+                meta.pop('transform')  # remove transform since deprecated
+            meta.update(driver=oformat)
+            meta.update(**creation_options)
             if len(set(first.block_shapes)) != 1:
                 click.echo('Cannot process input files - '
                            'All bands must have same block shapes')
