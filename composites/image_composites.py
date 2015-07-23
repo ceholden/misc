@@ -212,11 +212,12 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
                               dtype=np.dtype(meta['dtype']))
             mi, mj = np.meshgrid(np.arange(block_nrow), np.arange(block_ncol),
                                  indexing='ij')
+            # Open all source files one time
+            srcs = [rasterio.open(fname) for fname in inputs]
 
             for i, (idx, window) in enumerate(windows):
-                for j, fname in enumerate(inputs):
-                    with rasterio.open(fname) as src:
-                        dat[j, ...] = src.read(masked=True, window=window)
+                for j, src in enumerate(srcs):
+                    dat[j, ...] = src.read(masked=True, window=window)
 
                 # Find indices of files for composite
                 crit = {k: dat[:, v, ...] for k, v in crit_indices.iteritems()}
