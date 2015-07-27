@@ -2,7 +2,6 @@
 """ Image compositing script
 
 TODO:
-    - use mask bands/values in input images in masked arrays
     - make some system where vegetation indices can be inserted into expression
         + '(max {NDVI})' and {NDVI} = '(/ (- nir red) (+ nir red))'
     - allow images to not be stacked (see read's boundless option)
@@ -49,6 +48,8 @@ _context = dict(
 
 
 def _valid_band(ctx, param, value):
+    if value is None:
+        return None
     try:
         band = int(value)
         assert band >= 1
@@ -86,12 +87,17 @@ def _valid_band(ctx, param, value):
 @click.option('--band', callback=_cb_key_val, multiple=True,
               metavar='NAME=INDEX',
               help='Name and band number in INPUTS for additional bands')
+@click.option('--mask_band', '-m', callback=_valid_band, type=int, default=None,
+              help='Mask data in INPUTS with mask band')
+@click.option('--mask_val', '-mv', multiple=True, type=int,
+              help='Mask data in INPUTS with these values in mask band')
 @click.option('-v', '--verbose', is_flag=True, help='Show verbose messages')
 @click.option('-q', '--quiet', is_flag=True,
               help='Do not show progress or messages')
 @click.version_option(__version__)
 def image_composite(inputs, algo, expr, output, oformat, creation_options,
                     blue, green, red, nir, fswir, sswir, band,
+                    mask_band, mask_val,
                     verbose, quiet):
     """ Create image composites based on some criteria
 
@@ -217,6 +223,14 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
             n_windows = (meta['height'] / block_nrow *
                          meta['width'] / block_ncol)
 
+            # Ensure mask_band exists, if specified
+            if mask_band:
+                if mask_band <= meta['count'] and mask_band > 0:
+                    mask_band -= 1
+                else:
+                    click.echo('Mask band does not exist in INPUT images')
+                    raise click.Abort()
+
         # Initialize output data and create composite
         with rasterio.open(output, 'w', **meta) as dst:
             # Process by block
@@ -232,13 +246,22 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
             if _has_progressbar and not quiet:
                 widgets = [
                     progressbar.Percentage(),
-                    progressbar.BouncingBar(marker=progressbar.RotatingMarker())
+                    progressbar.BouncingBar(
+                        marker=progressbar.RotatingMarker())
                 ]
                 pbar = progressbar.ProgressBar(widgets=widgets).start()
 
             for i, (idx, window) in enumerate(windows):
                 for j, src in enumerate(srcs):
                     dat[j, ...] = src.read(masked=True, window=window)
+                    # Mask values matching mask_vals if mask_band
+                    if mask_band and mask_val:
+                        n_mask = dat[j, 0, ...].mask.sum()
+                        dat[j, ...].mask = np.logical_or(
+                            dat[j, ...].mask,
+                            np.in1d(dat[j, mask_band, ...], mask_val,).reshape(
+                                dat.shape[-2], dat.shape[-1])
+                        )
 
                 # Find indices of files for composite
                 crit = {k: dat[:, v, ...] for k, v in crit_indices.iteritems()}
