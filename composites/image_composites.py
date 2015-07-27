@@ -11,6 +11,7 @@ TODO:
 from __future__ import division, print_function
 
 import logging
+import math
 
 import click
 import numpy as np
@@ -220,8 +221,8 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
                 raise click.Abort()
             block_nrow, block_ncol = first.block_shapes[0]
             windows = first.block_windows(1)
-            n_windows = (meta['height'] / block_nrow *
-                         meta['width'] / block_ncol)
+            n_windows = math.ceil(meta['height'] / block_nrow *
+                                  meta['width'] / block_ncol)
 
             # Ensure mask_band exists, if specified
             if mask_band:
