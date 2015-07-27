@@ -61,14 +61,13 @@ def _valid_band(ctx, param, value):
 @click.argument('inputs', nargs=-1,
                 type=click.Path(dir_okay=False, readable=True,
                                 resolve_path=True))
+@click.argument('output', nargs=1,
+                type=click.Path(dir_okay=False, writable=True,
+                                resolve_path=True))
 @click.option('--algo', help='Create composite based on specific algorithm',
               type=click.Choice(_ALGO.keys()))
 @click.option('--expr', help='Create composite based on an expression',
               type=str, metavar='SNUGGS')
-@click.option('-o', '--output', help='Output image composite',
-              type=click.Path(dir_okay=False, writable=True,
-                              resolve_path=True),
-              default='composite.gtif')
 @click.option('-of', '--format', 'oformat', help='Output image format',
               default='GTiff')
 @creation_options
@@ -125,20 +124,20 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
         Use the built-in maxNDVI algorithm:
 
         \b
-        $ image_composite.py --algo maxNDVI -o composite_maxNDVI.gtif
-            image1.gtif image2.gtif image3.gtif
+        $ image_composite.py --algo maxNDVI image1.gtif image2.gtif image3.gtif
+            composite_maxNDVI.gtif
 
         or with S-expression:
 
         \b
         $ image_composite.py --expr '(max (/ (- nir red) (+ nir red)))'
-            -o composite_maxNDVI.gtif image1.gtif image2.gtif image3.gtif
+            image1.gtif image2.gtif image3.gtif composite_maxNDVI.gtif
 
         or with S-expressions using the normdiff shortcut:
 
         \b
         $ image_composite.py --expr '(max (normdiff nir red))'
-            -o composite_maxNDVI.gtif image1.gtif image2.gtif image3.gtif
+            image1.gtif image2.gtif image3.gtif composite_maxNDVI.gtif
 
     2. Create a composite based on median EVI (not recommended)
 
@@ -146,8 +145,8 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
 
         \b
         $ evi='(median (/ (- nir red) (+ (- (+ nir (* 6 red)) (* 7.5 blue)) 1)))'
-        $ image_composite.py --expr "$evi" -o composite_medianEVI.gtif
-            image1.gtif image2.gtif image3.gtif
+        $ image_composite.py --expr "$evi"  image1.gtif image2.gtif image3.gtif
+            composite_medianEVI.gtif
 
     3. Create a composite based on median NBR
 
@@ -155,7 +154,7 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
 
         \b
         $ image_composite.py --expr '(median (normdiff nir sswir))'
-            -o composite_maxNBR.gtif image1.gtif image2.gtif image3.gtif
+            image1.gtif image2.gtif image3.gtif composite_maxNBR.gtif
 
     """
     if verbose:
