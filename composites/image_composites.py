@@ -253,6 +253,15 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
                 pbar = progressbar.ProgressBar(widgets=widgets).start()
 
             for i, (idx, window) in enumerate(windows):
+                # Update dat and mi, mj only if window changes
+                nrow = window[0][1] - window[0][0]
+                ncol = window[1][1] - window[1][0]
+                if dat.shape[-2] != nrow or dat.shape[-1] != ncol:
+                    dat = np.ma.empty((len(inputs), meta['count'],
+                                       nrow, ncol),
+                                      dtype=np.dtype(meta['dtype']))
+                    mi, mj = np.meshgrid(np.arange(nrow), np.arange(ncol),
+                                         indexing='ij')
                 for j, src in enumerate(srcs):
                     dat[j, ...] = src.read(masked=True, window=window)
                     # Mask values matching mask_vals if mask_band
