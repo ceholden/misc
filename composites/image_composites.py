@@ -257,7 +257,6 @@ def image_composite(inputs, algo, expr, output, oformat, creation_options,
                     dat[j, ...] = src.read(masked=True, window=window)
                     # Mask values matching mask_vals if mask_band
                     if mask_band and mask_val:
-                        n_mask = dat[j, 0, ...].mask.sum()
                         dat[j, ...].mask = np.logical_or(
                             dat[j, ...].mask,
                             np.in1d(dat[j, mask_band, ...], mask_val,).reshape(
