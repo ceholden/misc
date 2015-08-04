@@ -43,7 +43,7 @@ def objstats(args):
         seg_layer = seg_ds.GetLayer()
     except:
         logger.error('Could not open segmentation vector file: {}'.format(
-            i=args.segment))
+            args.segment))
         sys.exit(1)
 
     cols, rows = img_ds.RasterXSize, img_ds.RasterYSize
