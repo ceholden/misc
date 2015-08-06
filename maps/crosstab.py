@@ -164,11 +164,9 @@ def rasterize_map(raster_file, vector_file, attribute, layer=1):
 def crosstabulate(rasterized, raster, ndv=0):
     """ Crosstabulate raster against rasterized vector file """
     # Find all values in either dataset
-    uniqs = np.unique(
-        np.array([np.unique(rasterized[rasterized != ndv]),
-                  np.unique(raster[raster != ndv])
-                  ])
-    )
+    uniqs = np.unique(np.concatenate([
+        np.unique(rasterized[rasterized != ndv]),
+        np.unique(raster[raster != ndv])]))
 
     # Crosstabulate
     tab = np.zeros((uniqs.size, uniqs.size))
