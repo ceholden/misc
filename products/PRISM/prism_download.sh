@@ -8,7 +8,7 @@ if [ "$1" == "0" ]; then
 fi
 
 # Download destination
-dest=/projectnb/landsat/datasets/PRISM/data/
+dest=/projectnb/landsat/datasets/PRISM/download/
 if [ ! -d $dest ]; then
     mkdir -p $dest
 fi
