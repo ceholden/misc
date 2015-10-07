@@ -8,7 +8,13 @@ if [ "$1" == "0" ]; then
 fi
 
 # Download destination
-dest=/projectnb/landsat/datasets/PRISM/download/
+if [ ! -z $PRISM_ROOT ]; then
+    dest=$PRISM_ROOT/download
+else
+    echo "'PRISM_ROOT' envvar is not defined."
+    echo "Defaulting to /projectnb/landsat/datasets/PRISM"
+    dest=/projectnb/landsat/datasets/PRISM/download/
+fi
 if [ ! -d $dest ]; then
     mkdir -p $dest
 fi
