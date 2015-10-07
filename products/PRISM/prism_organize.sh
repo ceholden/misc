@@ -22,24 +22,36 @@ if [ ! -d $dest ]; then
 fi
 
 element="ppt tmin tmax tmean"
-monthly="$from/monthly"
-normals="$from/normals"
 
-for ele in $element; do
-    to=$dest/monthly/$ele
-    if [ ! -d $to ]; then
-        mkdir -p $to
+for t in monthly normals; do
+    if [ ! -d $from/$t ]; then
+        echo "No data downloaded for $t -- continuing"
+        continue
     fi
-    for z in $monthly/$ele/*zip; do
-        unzip -q -u -d $to/ $z
-    done
+    echo "+ Working on $t data"
 
-    to=$dest/normals/$ele
-    if [ ! -d $to ]; then
+    for ele in $element; do
+        to=$dest/$t/$ele
+        tmp=${to}_tmp
         mkdir -p $to
-    fi
-    for z in $normals/$ele/*zip; do
-        unzip -q -u -d $to/ $z
-    done
+        mkdir -p $tmp
+    
+        # Unzip
+        echo "  ==> Extracting $ele $t data"
+        for z in $from/$t/$ele/*zip; do
+            unzip -q -n -d $tmp/ $z
+        done
+        
+        # Convert to GTIFF
+        echo "  ==> Converting $ele $t BIL files to GTiff"
+        for bil in $tmp/*.bil; do
+            gdal_translate -q -of GTiff \
+                -co TILED=YES -co COMPRESS=DEFLATE \
+                $bil $to/$(basename $bil _bil.bil).gtif
+        done
 
+        # Cleanup
+        rm -rf $tmp/
+
+    done 
 done
