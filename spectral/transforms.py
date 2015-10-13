@@ -216,6 +216,8 @@ _context = dict(
               help='Output data type (default: None)')
 @click.option('--scaling', default=10000, type=float, metavar='<scaling>',
               help='Scaling factor for reflectance (default: 10,000)')
+@click.option('--nodata', default=-9999, type=int, metavar='<NoDataValue>',
+              help='Output image NoDataValue')
 @click.option('--blue', callback=_valid_band, default=1, metavar='<int>',
               help='Band number for blue band in <src> (default: 1)')
 @click.option('--green', callback=_valid_band, default=2, metavar='<int>',
@@ -243,7 +245,7 @@ _context = dict(
                 type=click.Choice(_transforms),
                 metavar='<transform>')
 def create_transform(src, dst, transforms,
-                     format, dtype, scaling,
+                     format, dtype, scaling, nodata,
                      blue, green, red, nir, swir1, swir2,
                      verbose):
     if not transforms:
@@ -281,10 +283,13 @@ def create_transform(src, dst, transforms,
 
     func_args = inspect.getargvalues(inspect.currentframe())[-1]
     transform_args = dict.fromkeys(required_bands)
+    mask = np.zeros((ds.RasterYSize, ds.RasterXSize), dtype=np.bool)
     for b in transform_args.keys():
         idx = func_args[b]
         transform_args[b] = ds.GetRasterBand(idx).ReadAsArray()
-    logger.debug('Opened input file')
+        _nodata = ds.GetRasterBand(idx).GetNoDataValue() or nodata
+        mask[transform_args[b] == _nodata] = 1
+    logger.debug('Read input file')
 
     transform_args['scaling'] = scaling
 
@@ -297,13 +302,15 @@ def create_transform(src, dst, transforms,
 
     # Write output
     nbands = len(transforms.keys())
-    out_ds = driver.Create(dst,
-                           ds.RasterXSize, ds.RasterYSize, nbands, gdal_dtype)
+    out_ds = driver.Create(dst, ds.RasterXSize, ds.RasterYSize, nbands,
+                           gdal_dtype)
     metadata = {}
     for i_b, (name, array) in enumerate(six.iteritems(transforms)):
         r_band = out_ds.GetRasterBand(i_b + 1)
+        array[mask] = nodata
         r_band.WriteArray(array)
         r_band.SetDescription(name)
+        r_band.SetNoDataValue(nodata)
         metadata['Band_' + str(i_b + 1)] = name
 
     out_ds.SetMetadata(metadata)
