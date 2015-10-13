@@ -10,8 +10,9 @@ import click
 import numexpr as ne
 import numpy as np
 from osgeo import gdal, gdal_array
+import six
 
-__version__ = '0.1.1'
+__version__ = '0.1.2'
 
 FORMAT = '%(asctime)s:%(levelname)s:%(module)s.%(funcName)s:%(message)s'
 logging.basicConfig(format=FORMAT, level=logging.INFO, datefmt='%H:%M:%S')
@@ -299,7 +300,7 @@ def create_transform(src, dst, transforms,
     out_ds = driver.Create(dst,
                            ds.RasterXSize, ds.RasterYSize, nbands, gdal_dtype)
     metadata = {}
-    for i_b, (name, array) in enumerate(transforms.iteritems()):
+    for i_b, (name, array) in enumerate(six.iteritems(transforms)):
         r_band = out_ds.GetRasterBand(i_b + 1)
         r_band.WriteArray(array)
         r_band.SetDescription(name)
