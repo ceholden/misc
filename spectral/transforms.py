@@ -209,27 +209,36 @@ _context = dict(
 
 @click.command(context_settings=_context)
 @click.option('-f', '--format', default='GTiff', metavar='<str>',
-              help='Output file format (default: GTiff)')
+              show_default=True,
+              help='Output file format')
 @click.option('-ot', '--dtype',
               type=click.Choice(_np_dtypes),
-              default=None, metavar='<dtype>',
-              help='Output data type (default: None)')
+              default=None, metavar='<dtype>', show_default=True,
+              help='Output data type')
 @click.option('--scaling', default=10000, type=float, metavar='<scaling>',
-              help='Scaling factor for reflectance (default: 10,000)')
+              show_default=True,
+              help='Scaling factor for reflectance')
 @click.option('--nodata', default=-9999, type=int, metavar='<NoDataValue>',
+              show_default=True,
               help='Output image NoDataValue')
 @click.option('--blue', callback=_valid_band, default=1, metavar='<int>',
-              help='Band number for blue band in <src> (default: 1)')
+              show_default=True,
+              help='Band number for blue band in <src>')
 @click.option('--green', callback=_valid_band, default=2, metavar='<int>',
-              help='Band number for green band in <src> (default: 2)')
+              show_default=True,
+              help='Band number for green band in <src>')
 @click.option('--red', callback=_valid_band, default=3, metavar='<int>',
-              help='Band number for red band in <src> (default: 3)')
+              show_default=True,
+              help='Band number for red band in <src>')
 @click.option('--nir', callback=_valid_band, default=4, metavar='<int>',
-              help='Band number for near IR band in <src> (default: 4)')
+              show_default=True,
+              help='Band number for near IR band in <src>')
 @click.option('--swir1', callback=_valid_band, default=5, metavar='<int>',
-              help='Band number for first SWIR band in <src> (default: 5)')
+              show_default=True,
+              help='Band number for first SWIR band in <src>')
 @click.option('--swir2', callback=_valid_band, default=6, metavar='<int>',
-              help='Band number for second SWIR band in <src> (default: 6)')
+              show_default=True,
+              help='Band number for second SWIR band in <src>')
 @click.option('-v', '--verbose', is_flag=True,
               help='Show verbose messages')
 @click.version_option(__version__)
