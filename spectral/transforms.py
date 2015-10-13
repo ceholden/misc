@@ -11,7 +11,7 @@ import numexpr as ne
 import numpy as np
 from osgeo import gdal, gdal_array
 
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 
 FORMAT = '%(asctime)s:%(levelname)s:%(module)s.%(funcName)s:%(message)s'
 logging.basicConfig(format=FORMAT, level=logging.INFO, datefmt='%H:%M:%S')
@@ -21,21 +21,16 @@ gdal.UseExceptions()
 gdal.AllRegister()
 
 _np_dtypes = ['uint8', 'uint16', 'int16', 'uint32', 'int32',
-             'float32', 'float64']
+              'float32', 'float64']
 _transforms = ['evi', 'ndvi', 'ndmi', 'nbr',
                'brightness', 'greenness', 'wetness']
 
 # Crist 1985
-_lt5_bgw = [
+# "A TM Tasseled Cap Equivalent Transformation for Reflectance Factor Data"
+bgw_coef = [
     np.array([0.2043, 0.4158, 0.5524, 0.5741, 0.3124, 0.2330]),
     np.array([-0.1603, -0.2189, -0.4934, 0.7940, -0.0002, -0.1446]),
     np.array([0.0315, 0.2021, 0.3102, 0.1954, -0.6806, -0.6109])
-]
-# Huang et al 2002
-_le7_bgw = [
-    np.array([0.3561, 0.3972, 0.3904, 0.6966, 0.2286, 0.1596]),
-    np.array([-0.3344, -0.3544, -0.4556,  0.6966, -0.0242,-0.2630]),
-    np.array([0.2626, 0.2141, 0.0926, 0.0656, -0.7629, -0.5388])
 ]
 
 
@@ -91,7 +86,7 @@ def _evi(red, nir, blue, scaling=1.0, **kwargs):
     return evi.astype(dtype)
 
 
-@transform('NDVI', ['red', 'nir',])
+@transform('NDVI', ['red', 'nir'])
 def _ndvi(red, nir, **kwargs):
     """ Return the Normalized Difference Vegetation Index (NDVI)
 
@@ -167,12 +162,8 @@ def _nbr(swir2, nir, **kwargs):
 
 
 @transform('Brightness', ['blue', 'green', 'red', 'nir', 'swir1', 'swir2'])
-def _brightness(blue, green, red, nir, swir1, swir2, sensor, **kwargs):
-    if sensor[0:2].lower() == 'le':
-        coef = _le7_bgw[0]
-    else:
-        coef = _lt5_bgw[0]
-    c1, c2, c3, c4, c5, c6 = coef
+def _brightness(blue, green, red, nir, swir1, swir2, **kwargs):
+    c1, c2, c3, c4, c5, c6 = bgw_coef[0]
 
     expr = ('blue * c1 + green * c2 + red * c3'
             ' + nir * c4 + swir1 * c5 + swir2 * c6')
@@ -181,12 +172,8 @@ def _brightness(blue, green, red, nir, swir1, swir2, sensor, **kwargs):
 
 
 @transform('Greenness', ['blue', 'green', 'red', 'nir', 'swir1', 'swir2'])
-def _greenness(blue, green, red, nir, swir1, swir2, sensor, **kwargs):
-    if sensor[0:2].lower() == 'le':
-        coef = _le7_bgw[1]
-    else:
-        coef = _lt5_bgw[1]
-    c1, c2, c3, c4, c5, c6 = coef
+def _greenness(blue, green, red, nir, swir1, swir2, **kwargs):
+    c1, c2, c3, c4, c5, c6 = bgw_coef[1]
 
     expr = ('blue * c1 + green * c2 + red * c3'
             ' + nir * c4 + swir1 * c5 + swir2 * c6')
@@ -195,12 +182,8 @@ def _greenness(blue, green, red, nir, swir1, swir2, sensor, **kwargs):
 
 
 @transform('Wetness', ['blue', 'green', 'red', 'nir', 'swir1', 'swir2'])
-def _wetness(blue, green, red, nir, swir1, swir2, sensor, **kwargs):
-    if sensor[0:2].lower() == 'le':
-        coef = _le7_bgw[2]
-    else:
-        coef = _lt5_bgw[2]
-    c1, c2, c3, c4, c5, c6 = coef
+def _wetness(blue, green, red, nir, swir1, swir2, **kwargs):
+    c1, c2, c3, c4, c5, c6 = bgw_coef[2]
 
     expr = ('blue * c1 + green * c2 + red * c3'
             ' + nir * c4 + swir1 * c5 + swir2 * c6')
@@ -232,8 +215,6 @@ _context = dict(
               help='Output data type (default: None)')
 @click.option('--scaling', default=10000, type=float, metavar='<scaling>',
               help='Scaling factor for reflectance (default: 10,000)')
-@click.option('--sensor', default='LT5', type=str, metavar='<sensor>',
-              help='Landsat sensor type (for Tasseled Cap) (default: LT5)')
 @click.option('--blue', callback=_valid_band, default=1, metavar='<int>',
               help='Band number for blue band in <src> (default: 1)')
 @click.option('--green', callback=_valid_band, default=2, metavar='<int>',
@@ -261,7 +242,7 @@ _context = dict(
                 type=click.Choice(_transforms),
                 metavar='<transform>')
 def create_transform(src, dst, transforms,
-                     format, dtype, scaling, sensor,
+                     format, dtype, scaling,
                      blue, green, red, nir, swir1, swir2,
                      verbose):
     if not transforms:
@@ -305,7 +286,6 @@ def create_transform(src, dst, transforms,
     logger.debug('Opened input file')
 
     transform_args['scaling'] = scaling
-    transform_args['sensor'] = sensor
 
     # Create transforms
     transforms = OrderedDict([
