@@ -12,7 +12,7 @@ import numpy as np
 from osgeo import gdal, gdal_array
 import six
 
-__version__ = '0.1.2'
+__version__ = '0.2.0'
 
 FORMAT = '%(asctime)s:%(levelname)s:%(module)s.%(funcName)s:%(message)s'
 logging.basicConfig(format=FORMAT, level=logging.INFO, datefmt='%H:%M:%S')
