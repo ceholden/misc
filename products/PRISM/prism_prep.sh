@@ -78,19 +78,20 @@ for t in monthly daily; do
 
                 # Begin cumulating on Oct 1st
                 if [ "$month" == "10" -a "$day" == "01" ]; then
-                    echo "   ::: Beginning to cumulate ${year} from ${month}-${day}"
-                    echo "       * cumulating ${month}-${day}"
-                    prev_cum=$img
-                    cp $img $cumdir/$(basename $img)
+                    echo "   ::: Beginning to cumulate $((year + 1)) from ${year}-${month}-${day}"
+                    echo "       * cumulating ${year}-${month}-${day}"
+                    cp $img $outfn
+                    prev_cum=$outfn
                 else
                     if [ ! -z "$prev_cum" ]; then
                         # Try to resume before going further
                         [ -f $outfn -a "$resume" == "1" ] && continue
-
                         # Add this image to previously cumulated
-                        echo "       * cumulating ${month}-${day}"
-                        rio -q calc "(+ (read 1) (read 2))" \
+                        echo "       * cumulating ${year}-${month}-${day}"
+                        rio -q calc --co "TILED=YES" --co "COMPRESS=DEFLATE" \
+                            "(+ (read 1) (read 2))" \
                             $prev_cum $img $outfn
+                        prev_cum=$outfn
                     fi                    
                 fi
             done
