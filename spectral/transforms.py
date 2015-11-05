@@ -20,7 +20,7 @@ CHANGELOG = OrderedDict((
     ('0.2.0', '- Include option to mask NODATA in output'),
     ('0.3.0', '''
              - Clarify input and output scaling factors
-             - Test asdf''')
+             - Calculate transform indices in order specified''')
 ))
 
 FORMAT = '%(asctime)s:%(levelname)s:%(module)s.%(funcName)s:%(message)s'
