@@ -14,6 +14,15 @@ import six
 
 __version__ = '0.3.0'
 
+CHANGELOG = OrderedDict((
+    ('0.1.0', '- Initial script'),
+    ('0.1.1', '- Use correct coefficients for BGW calculation'),
+    ('0.2.0', '- Include option to mask NODATA in output'),
+    ('0.3.0', '''
+             - Clarify input and output scaling factors
+             - Test asdf''')
+))
+
 FORMAT = '%(asctime)s:%(levelname)s:%(module)s.%(funcName)s:%(message)s'
 logging.basicConfig(format=FORMAT, level=logging.INFO, datefmt='%H:%M:%S')
 logger = logging.getLogger('transforms')
@@ -218,6 +227,33 @@ def _wetness(blue, green, red, nir, swir1, swir2,
 
 
 # Main script
+def changelog_option(*param_decls, **attrs):
+    def decorator(f):
+        def callback(ctx, param, value):
+            if not value:
+                return
+            click.echo('Current version: %s' % __version__)
+            for version in CHANGELOG:
+                click.echo('Version history: %s' % version)
+                for item in CHANGELOG[version].split('\n'):
+                    if not item:
+                        continue
+                    click.echo(click.wrap_text(
+                        item.lstrip(),
+                        initial_indent='    ',
+                        subsequent_indent='        '))
+            ctx.exit()
+
+        attrs.setdefault('is_flag', True)
+        attrs.setdefault('expose_value', False)
+        attrs.setdefault('help', 'Show a changelog and exit.')
+        attrs.setdefault('is_eager', True)
+        attrs['callback'] = callback
+
+        return click.option(*(param_decls or ('--changelog',)), **attrs)(f)
+    return decorator
+
+
 def _valid_band(ctx, param, value):
     try:
         band = int(value)
@@ -272,6 +308,7 @@ _context = dict(
 @click.option('-v', '--verbose', is_flag=True,
               help='Show verbose messages')
 @click.version_option(__version__)
+@changelog_option()
 @click.argument('src', nargs=1,
                 type=click.Path(exists=True, readable=True,
                                 dir_okay=False, resolve_path=True),
