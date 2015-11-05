@@ -12,7 +12,7 @@ import numpy as np
 from osgeo import gdal, gdal_array
 import six
 
-__version__ = '0.2.0'
+__version__ = '0.3.0'
 
 FORMAT = '%(asctime)s:%(levelname)s:%(module)s.%(funcName)s:%(message)s'
 logging.basicConfig(format=FORMAT, level=logging.INFO, datefmt='%H:%M:%S')
@@ -51,7 +51,7 @@ def transform(transform_name, required_bands):
 
 
 @transform('EVI', ['red', 'nir', 'blue'])
-def _evi(red, nir, blue, scaling=1.0, **kwargs):
+def _evi(red, nir, blue, input_scaling=1.0, output_scaling=1.0, **kwargs):
     """ Return the Enhanced Vegetation Index (EVI)
 
     EVI is calculated as:
@@ -71,24 +71,25 @@ def _evi(red, nir, blue, scaling=1.0, **kwargs):
       red (np.ndarray): red band
       nir (np.ndarray): NIR band
       blue (np.ndarray): blue band
-      scaling (float): scaling factor for red, nir, and blue reflectance to
-        convert into [0, 1] range (default: 1.0)
+      input_scaling (float): scaling factor for red, nir, and blue reflectance
+        to convert into [0, 1] range (default: 1.0)
+      output_scaling (float): scaling factor for output EVI (default: 1.0)
 
     Returns:
       np.ndarray: EVI
 
     """
     dtype = red.dtype
-    expr = '2.5 * (nir - red) / (nir + 6 * red - 7.5 * blue + scaling)'
+    expr = '2.5 * (nir - red) / (nir + 6 * red - 7.5 * blue + input_scaling)'
     evi = ne.evaluate(expr)
 
-    if scaling != 1.0:
-        evi *= scaling
+    if output_scaling != 1.0:
+        evi *= output_scaling
     return evi.astype(dtype)
 
 
 @transform('NDVI', ['red', 'nir'])
-def _ndvi(red, nir, **kwargs):
+def _ndvi(red, nir, output_scaling=1.0, **kwargs):
     """ Return the Normalized Difference Vegetation Index (NDVI)
 
     NDVI is calculated as:
@@ -103,17 +104,21 @@ def _ndvi(red, nir, **kwargs):
     Args:
       red (np.ndarray): red band
       nir (np.ndarray): NIR band
+      output_scaling (float): scaling factor for output NDVI (default: 1.0)
 
     Returns:
       np.ndarray: NDVI
 
     """
     expr = '(nir - red) / (nir + red)'
-    return ne.evaluate(expr)
+    if output_scaling == 1.0:
+        return ne.evaluate(expr)
+    else:
+        return ne.evaluate(expr) * output_scaling
 
 
 @transform('NDMI', ['swir1', 'nir'])
-def _ndmi(swir1, nir, **kwargs):
+def _ndmi(swir1, nir, output_scaling=1.0, **kwargs):
     """ Return the Normalized Difference Moisture Index (NDMI)
 
     NDMI is calculated as:
@@ -128,17 +133,21 @@ def _ndmi(swir1, nir, **kwargs):
     Args:
       swir1 (np.ndarray): SWIR1 band
       nir (np.ndarray): NIR band
+      output_scaling (float): scaling factor for output NDVI (default: 1.0)
 
     Returns:
       np.ndarray: NDMI
 
     """
     expr = '(nir - swir1) / (nir + swir1)'
-    return ne.evaluate(expr)
+    if output_scaling == 1.0:
+        return ne.evaluate(expr)
+    else:
+        return ne.evaluate(expr) * output_scaling
 
 
 @transform('NBR', ['swir2', 'nir'])
-def _nbr(swir2, nir, **kwargs):
+def _nbr(swir2, nir, output_scaling=1.0, **kwargs):
     """ Return the Normalized Burn Ratio (NBR)
 
     NBR is calculated as:
@@ -153,43 +162,59 @@ def _nbr(swir2, nir, **kwargs):
     Args:
       swir2 (np.ndarray): SWIR2 band
       nir (np.ndarray): NIR band
+      output_scaling (float): scaling factor for output NDVI (default: 1.0)
 
     Returns:
       np.ndarray: NBR
 
     """
     expr = '(nir - swir2) / (nir + swir2)'
-    return ne.evaluate(expr)
+    if output_scaling == 1.0:
+        return ne.evaluate(expr)
+    else:
+        return ne.evaluate(expr) * output_scaling
 
 
 @transform('Brightness', ['blue', 'green', 'red', 'nir', 'swir1', 'swir2'])
-def _brightness(blue, green, red, nir, swir1, swir2, **kwargs):
+def _brightness(blue, green, red, nir, swir1, swir2,
+                input_scaling=1.0, output_scaling=1.0, **kwargs):
     c1, c2, c3, c4, c5, c6 = bgw_coef[0]
 
     expr = ('blue * c1 + green * c2 + red * c3'
             ' + nir * c4 + swir1 * c5 + swir2 * c6')
 
-    return ne.evaluate(expr)
+    if input_scaling == output_scaling:
+        return ne.evaluate(expr)
+    else:
+        return output_scaling / input_scaling * ne.evaluate(expr)
 
 
 @transform('Greenness', ['blue', 'green', 'red', 'nir', 'swir1', 'swir2'])
-def _greenness(blue, green, red, nir, swir1, swir2, **kwargs):
+def _greenness(blue, green, red, nir, swir1, swir2,
+               input_scaling=1.0, output_scaling=1.0, **kwargs):
     c1, c2, c3, c4, c5, c6 = bgw_coef[1]
 
     expr = ('blue * c1 + green * c2 + red * c3'
             ' + nir * c4 + swir1 * c5 + swir2 * c6')
 
-    return ne.evaluate(expr)
+    if input_scaling == output_scaling:
+        return ne.evaluate(expr)
+    else:
+        return output_scaling / input_scaling * ne.evaluate(expr)
 
 
 @transform('Wetness', ['blue', 'green', 'red', 'nir', 'swir1', 'swir2'])
-def _wetness(blue, green, red, nir, swir1, swir2, **kwargs):
+def _wetness(blue, green, red, nir, swir1, swir2,
+             input_scaling=1.0, output_scaling=1.0, **kwargs):
     c1, c2, c3, c4, c5, c6 = bgw_coef[2]
 
     expr = ('blue * c1 + green * c2 + red * c3'
             ' + nir * c4 + swir1 * c5 + swir2 * c6')
 
-    return ne.evaluate(expr)
+    if input_scaling == output_scaling:
+        return ne.evaluate(expr)
+    else:
+        return output_scaling / input_scaling * ne.evaluate(expr)
 
 
 # Main script
@@ -215,9 +240,14 @@ _context = dict(
               type=click.Choice(_np_dtypes),
               default=None, metavar='<dtype>', show_default=True,
               help='Output data type')
-@click.option('--scaling', default=10000, type=float, metavar='<scaling>',
+@click.option('--input_scaling', default=10000, type=float,
+              metavar='<factor>',
               show_default=True,
-              help='Scaling factor for reflectance')
+              help='Scaling factor for input reflectance data')
+@click.option('--output_scaling', default=10000, type=float,
+              metavar='<factor>',
+              show_default=True,
+              help='Scaling factor for output spectral indices/transforms')
 @click.option('--nodata', default=-9999, type=int, metavar='<NoDataValue>',
               show_default=True,
               help='Output image NoDataValue')
@@ -254,9 +284,20 @@ _context = dict(
                 type=click.Choice(_transforms),
                 metavar='<transform>')
 def create_transform(src, dst, transforms,
-                     format, dtype, scaling, nodata,
+                     format, dtype, input_scaling, output_scaling, nodata,
                      blue, green, red, nir, swir1, swir2,
                      verbose):
+    """ Create one or more reflectance data transformations or spectral indices
+
+    Pay attention to the ``--input_scaling`` and ``--output_scaling`` optional
+    arguments to ensure all calculations are done correctly and the output
+    data are scaled appropriately given the output datatype.
+
+    The ``--input_scaling`` optional argument is a property of the input data
+    while the ``--output_scaling`` should be chosen by the user to fit the
+    range of values of a given transformation within the minimums and maximums
+    of the desired output datatype.
+    """
     if not transforms:
         raise click.BadParameter(
             'No transforms specified', param_hint='<transform>...')
@@ -300,7 +341,8 @@ def create_transform(src, dst, transforms,
         mask[transform_args[b] == _nodata] = 1
     logger.debug('Read input file')
 
-    transform_args['scaling'] = scaling
+    transform_args['input_scaling'] = input_scaling
+    transform_args['output_scaling'] = output_scaling
 
     # Create transforms
     transforms = OrderedDict([
