@@ -185,7 +185,8 @@ def crosstabulate(rasterized, raster, ndv=0):
     pretty_tab = np.hstack((rownames, np.char.mod('%i', tab)))
     pretty_tab = np.vstack((colnames, pretty_tab))
 
-    return pretty_tab
+    # Return with reference across & map labels going down
+    return pretty_tab.T
 
 
 def main():
