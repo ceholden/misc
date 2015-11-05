@@ -382,10 +382,12 @@ def create_transform(src, dst, transforms,
     transform_args['output_scaling'] = output_scaling
 
     # Create transforms
-    transforms = OrderedDict([
-        [t.transform_name, t(**transform_args)] for t in transform_funcs
-        if t.transform_name.lower() in transforms
-    ])
+    _transforms = OrderedDict()
+    for t in transforms:
+        func = [tf for tf in transform_funcs if
+                tf.transform_name.lower() == t][0]
+        _transforms[func.transform_name] = func(**transform_args)
+    transforms = _transforms
     logger.debug('Calculated transforms')
 
     # Write output
