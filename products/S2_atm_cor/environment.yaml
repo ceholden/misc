@@ -1,0 +1,15 @@
+name: sen2cor
+channels:
+    - s2tbx
+dependencies:
+    # From setup.py
+    - gdal=1.11.2
+    - krb5  # fixes libcom_err.so.3 error on conda gdal=1.11.2
+    - proj4
+    - contextlib2
+    - glymur
+    - pytables
+    # Assumed from full Anaconda install
+    - scipy
+    - matplotlib 
+    - pillow
