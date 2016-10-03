@@ -140,6 +140,7 @@ _context = dict(
               type=click.Choice(NP_DTYPES),
               default='uint8', metavar='<dtype>',
               help='Output data type')
+@click.option('--co', multiple=True, type=str, help='GDAL Creation options')
 @click.option('-v', '--verbose', is_flag=True,
               help='Show verbose messages')
 @click.version_option(__version__)
@@ -154,7 +155,7 @@ _context = dict(
 @click.argument('stretch', nargs=1, type=click.Choice(STRETCHES),
                 metavar='<stretch>')
 def stretch(src, dst, stretch,
-            bands, ndv, minmax, pct, _format, dtype, verbose):
+            bands, ndv, minmax, pct, _format, dtype, co, verbose):
     # Read input image
     try:
         ds = gdal.Open(src, gdal.GA_ReadOnly)
@@ -201,7 +202,7 @@ def stretch(src, dst, stretch,
     out_ds.SetGeoTransform(ds.GetGeoTransform())
 
     if _format.lower() in COPY_FORMATS:
-        _out_ds = driver.CreateCopy(dst, out_ds, 0)
+        _out_ds = driver.CreateCopy(dst, out_ds, 0, co)
         _out_ds = None
 
     ds = None
