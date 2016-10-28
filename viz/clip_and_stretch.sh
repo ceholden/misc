@@ -2,9 +2,31 @@
 
 set -e
 
-# CODE / UTILS
-STRETCH=/usr3/graduate/ceholden/Documents/misc/spectral/stretches.py
-module load ImageMagick
+# SETUP FOR GEO/SCC
+HOST=$(hostname)
+if [ "${HOST:0:3}" == "geo" ] || [ "${HOST:0:3}" == "scc" ]; then
+    export PATH=/usr3/graduate/ceholden/Documents/misc/spectral:$PATH
+    module load ImageMagick
+fi
+
+# TEST IF NECESSARY PROGRAMS ARE AVAILABLE
+hash stretches.py || {
+    echo "ERROR: Cannot find 'stretches.py' from https://github.com/ceholden/misc"
+    exit 1
+}
+hash  convert || {
+    echo "ERROR: Cannot find 'convert' from ImageMagick"
+    exit 1
+}
+STRETCH=stretches.py
+
+# Parse CLI
+if [ -z $1 ]; then
+    echo "ERROR: Must supply output directory as first argument"
+    exit 1
+fi
+OUT=$1
+
 
 # STYLE
 BOUNDS="209565.0 4671855.0 382365.0 4704255.0"
@@ -18,9 +40,9 @@ GRAVITY=South
 # DETAILS
 ROOT=/projectnb/landsat/projects/Massachusetts/p012r031/images
 
-OUT=$(dirname $(readlink -f $0))/$FORMAT/
+OUT=$OUT/$FORMAT/
 TMP=${OUT}/TEMP
-CLIPPED=$OUT/clipped
+CLIPPED=$OUT/../clipped
 B543=$OUT/B543/out
 B432=$OUT/B432/out
 
