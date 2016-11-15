@@ -1,9 +1,5 @@
 #!/bin/bash
 
-set -o errexit
-set -o pipefail
-set -o nounset
-
 usage() {
     cat << EOF
     
@@ -49,6 +45,10 @@ main() {
 if [ -z $3 ]; then
     usage
 fi
+
+set -o errexit
+set -o pipefail
+set -o nounset
 
 SCRIPT=$1
 MAX=$2
