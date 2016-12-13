@@ -39,10 +39,11 @@ def _linear(arr, minmax, ndv=None, dtype=np.uint8, **kwargs):
     """
     if isinstance(ndv, (int, float)):
         ndv = [ndv]
+    if ndv:
+        mask = ~np.in1d(arr, ndv).reshape(arr.shape)
 
     if minmax is None:
         if ndv:
-            mask = ~np.in1d(arr, ndv).reshape(arr.shape)
             _min, _max = arr[mask].min(), arr[mask].max()
         else:
             _min, _max = arr.min(), arr.max()
@@ -51,10 +52,10 @@ def _linear(arr, minmax, ndv=None, dtype=np.uint8, **kwargs):
 
     try:
         dt_max = np.iinfo(dtype).max
-        dt_min = np.iinfo(dtype).min
+        dt_min = np.iinfo(dtype).min + 1
     except:
         dt_max = np.finfo(dtype).max
-        dt_min = np.finfo(dtype).min
+        dt_min = np.finfo(dtype).min + 1.0
 
     arr[arr >= _max] = _max
     arr[arr <= _min] = _min
@@ -62,7 +63,14 @@ def _linear(arr, minmax, ndv=None, dtype=np.uint8, **kwargs):
     scale = (dt_max - dt_min) / (_max - _min)
     offset = dt_max - (scale * _max)
 
-    return ne.evaluate('arr * scale + offset').astype(dtype)
+    out_ndv = dt_min - 1.0
+
+    if ndv is not None:
+        out = np.ones(arr.shape, dtype=dtype) * out_ndv
+        out[mask] = arr[mask] * scale + offset
+        return out.astype(dtype), out_ndv
+    else:
+        return ne.evaluate('arr * scale + offset').astype(dtype), out_ndv
 
 
 def _linear_pct(arr, percent=2, ndv=None, dtype=np.uint8,
@@ -186,16 +194,20 @@ def stretch(src, dst, stretch,
         mem_driver = gdal.GetDriverByName('MEM')
         out_ds = mem_driver.Create('', ds.RasterXSize, ds.RasterYSize,
                                    nbands, gdal_dtype)
+    else:
+        out_ds = driver.Create(dst, ds.RasterXSize, ds.RasterYSize,
+                               nbands, gdal_dtype)
 
     for idx, (b, _minmax) in enumerate(itertools.zip_longest(bands, minmax)):
         kwargs = dict(ndv=ndv, minmax=_minmax, percent=pct)
 
         in_band = ds.GetRasterBand(b)
         arr = in_band.ReadAsArray()
-        arr = _STRETCH_FUNCS[stretch](arr, **kwargs)
+        arr, out_ndv = _STRETCH_FUNCS[stretch](arr, **kwargs)
         out_band = out_ds.GetRasterBand(idx + 1)
         out_band.WriteArray(arr)
         out_band.SetDescription(in_band.GetDescription())
+        out_band.SetNoDataValue(out_ndv)
 
     out_ds.SetMetadata(ds.GetMetadata())
     out_ds.SetProjection(ds.GetProjection())
