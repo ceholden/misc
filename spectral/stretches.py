@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 from __future__ import division, print_function
 
-import itertools
+try:
+    from itertools import zip_longest
+except ImportError:
+    from itertools import izip_longest as zip_longest
 import sys
 
 import click
@@ -198,7 +201,7 @@ def stretch(src, dst, stretch,
         out_ds = driver.Create(dst, ds.RasterXSize, ds.RasterYSize,
                                nbands, gdal_dtype)
 
-    for idx, (b, _minmax) in enumerate(itertools.zip_longest(bands, minmax)):
+    for idx, (b, _minmax) in enumerate(zip_longest(bands, minmax)):
         kwargs = dict(ndv=ndv, minmax=_minmax, percent=pct)
 
         in_band = ds.GetRasterBand(b)
