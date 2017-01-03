@@ -57,6 +57,7 @@ def clip(indir, chip_csv, outdir,
 
     for chip in chips.itertuples():
         _chip = dict(zip(chip._fields, chip))
+        _chip['Index'] += 1  # index on 1
         for image in images:
             # Format output filename
             _chip['input'] = image.name

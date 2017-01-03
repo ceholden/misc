@@ -1,6 +1,7 @@
 #!/bin/bash
 
-set -e
+set -o nounset
+set -o errexit
 
 # SETUP FOR GEO/SCC
 HOST=$(hostname)
@@ -27,17 +28,18 @@ if [ -z $1 ]; then
 fi
 OUT=$1
 
-
 # STYLE
-
 ANNOTATE=0
-NOCLIP=1
+NOCLIP=0
 
 # 3x 1920x1080
 # BOUNDS="209565.0 4671855.0 382365.0 4704255.0"
-
 # 3x 3840x2160
-BOUNDS="228495.0 4638585.0 574095.0 4703385.0"
+# BOUNDS="228495.0 4638585.0 574095.0 4703385.0"
+
+# 3x 1920x1080 @ 15m (200% zoom)
+BOUNDS="231060.0 4672920.0 403860.0 4705320.0"
+RES=15
 
 #FORMAT=JPEG
 #EXT=jpg
@@ -50,11 +52,10 @@ GRAVITY=South
 # DETAILS
 ROOT=/projectnb/landsat/projects/Massachusetts/p012r031/images
 
-OUT=$OUT/$FORMAT/
-TMP=${OUT}/TEMP
+OUT=$OUT/
 CLIPPED=$OUT/../clipped
-B543=$OUT/B543
-B432=$OUT/B432
+B543=$OUT/SR_B543
+B432=$OUT/SR_B432
 
 mkdir -p $CLIPPED
 mkdir -p $B543
@@ -78,10 +79,16 @@ clip_stretch() {
     else
         clipped=$CLIPPED/${name}.gtif
         if [ ! -f $clipped ]; then
-        #    rio clip --bounds $BOUNDS $img $clipped
-            gdal_translate \
-                -srcwin 1011 1147 11520 2160 \
-                $img $clipped
+            rio warp \
+                -o $clipped \
+                --bounds $BOUNDS \
+                --res $RES \
+                --co "COMPRESS=LZW" \
+                $img
+#            gdal_translate \
+#                -projwin $BOUNDS \
+#                -tr 15 15 \
+#                $img $clipped
         fi
     fi
 
