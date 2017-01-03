@@ -43,7 +43,7 @@ def _linear(arr, minmax, ndv=None, dtype=np.uint8, **kwargs):
     if isinstance(ndv, (int, float)):
         ndv = [ndv]
     if ndv:
-        mask = ~np.in1d(arr, ndv).reshape(arr.shape)
+        mask = np.in1d(arr, ndv, invert=True).reshape(arr.shape)
 
     if minmax is None:
         if ndv:
