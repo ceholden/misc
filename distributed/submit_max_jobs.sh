@@ -3,7 +3,7 @@
 usage() {
     cat << EOF
     
-    Usage: $0 <script> <number of jobs> <files...>
+    Usage: $0 <script> <title> <number of jobs> <files...>
 
     This script runs the input <script> against each file in <files...>
     on the SGE batch job system using -hold_jid to enforce a maximum
@@ -35,7 +35,7 @@ main() {
         echo "Submitting: $group/$MAX: $i/$nsplit - $f"
     
         SUBMITTED[$group]=$(qsub -terse \
-            -V -j y -l h_rt=24:00:00 -N unzip_${group}-${i} \
+            -V -j y -l h_rt=24:00:00 -N ${TITLE}_${group}-${i} \
             $HOLD \
             $SCRIPT $f)
         let i+=1
@@ -51,7 +51,8 @@ set -o pipefail
 set -o nounset
 
 SCRIPT=$1
-MAX=$2
-FILES=${@:3}
+TITLE=$2
+MAX=$3
+FILES=${@:4}
 
 main
