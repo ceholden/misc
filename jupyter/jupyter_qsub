@@ -2,25 +2,42 @@
 # vim: set filetype=sh :
 
 set -e
-set -u
 
 hash jupyter 2>/dev/null || {
     echo >&2 "Can't find 'jupyter' program. Exiting"
     exit 1
 }
 
-
 service="lab"
-if [[ "${@:0}" == "notebook" ]]; then
+if [[ "$1" == "notebook" ]]; then
     service="notebook"
-    shift  # remove $1
+    shift
+elif [[ "$1" == "lab" ]]; then
+    shift
 fi
 echo "Launching a Jupyter $service session"
 
+set -u
+
+echo "None $@"
+echo "1 ${@:1}"
+echo "2 ${@:2}"
+
 job_name=session_jupyter_${service}
+echo "qsub \
+    -V \
+    -l h_rt=24:00:00 \
+    -l eth_speed=10 \
+    -j y \
+    -b y \
+    -N $job_name \
+    jupyter "$service" "${@:1}" 2>&1
+"
+exit
 qsub_msg=$(qsub \
     -V \
     -l h_rt=24:00:00 \
+    -l eth_speed=10 \
     -j y \
     -b y \
     -N $job_name \
