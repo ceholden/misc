@@ -27,7 +27,12 @@ while true; do
     if [ -f $scheduler_log ]; then
         scheduler_ip=$(grep "Scheduler at" $scheduler_log | awk '{ print $NF }')
         if [ ! -z "$scheduler_ip" ]; then
+            scheduler_host=$(qstat -u $USER | \
+                             grep $scheduler_jid | \
+                             awk '{ print $8 }' | \
+                             awk -F '@' '{ print $2 }')
             echo "Found scheduler at: $scheduler_ip"
+            echo "Scheduler running on hostname: ${scheduler_host}"
             break
         fi
     fi
