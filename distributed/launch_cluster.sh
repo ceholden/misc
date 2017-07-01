@@ -6,6 +6,7 @@ if [ -z $1 ]; then
 fi
 
 N=$1
+NPROC=2  # processors/qsub job (via -pe omp flag)
 JOBNAME="dask-exec"
 
 
@@ -40,6 +41,17 @@ while true; do
 done
 
 echo "Launching $N workers..."
-qsub -V -j y -b y -l h_rt=24:00:00 \
-    -N "dask-worker" -t 1-$N \
-    dask-worker --nthreads 1 --nprocs 1 $scheduler_ip
+qsub \
+    -V \
+    -j y \
+    -b y \
+    -pe omp $NPROC \
+    -l h_rt=24:00:00 \
+    -l eth_speed=10 \
+    -N "dask-worker" \
+    -t 1-$N \
+    dask-worker \
+        --nthreads 1 \
+        --nprocs $NPROC \
+        --local-directory $TMP/$USER \
+        $scheduler_ip
