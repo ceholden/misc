@@ -14,7 +14,6 @@ if [ -z $2 ]; then
     echo "Error: must specify number of jobs"
     usage
 fi
-
 # Check if dworker is installed
 hash dask-worker 2>/dev/null || {
     echo >&2 "Can't find 'dask-worker': please install dask-distributed"
@@ -22,5 +21,23 @@ hash dask-worker 2>/dev/null || {
 
 host=$1
 njobs=$2
+if [ -z $3 ]; then
+    ncore=1
+else
+    ncore=$3
+    echo "Setting $ncore per cpu (ncpu=$2)"
+fi
 
-qsub -V -b y -j y -t 1-${njobs} "${@:3}" dask-worker --nthreads 1 $host
+
+qsub \
+    -V \
+    -b y \
+    -j y \
+    -t 1-${njobs} \
+    -pe omp $ncore \
+    "${@:4}" \
+    dask-worker \
+        --nthreads $ncore \
+        --nprocs 1 \
+        --local-directory $TMP \
+        $host
