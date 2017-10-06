@@ -11,37 +11,26 @@ hash jupyter 2>/dev/null || {
 service="lab"
 if [[ "$1" == "notebook" ]]; then
     service="notebook"
-    shift
-elif [[ "$1" == "lab" ]]; then
-    shift
 fi
-echo "Launching a Jupyter $service session"
+ncpu=2
+if [[ ! -z "$2" ]]; then
+    ncpu=$2
+fi
+
+echo "Launching a Jupyter $service session with $ncpu cores"
 
 set -u
 
-echo "None $@"
-echo "1 ${@:1}"
-echo "2 ${@:2}"
-
 job_name=session_jupyter_${service}
-echo "qsub \
-    -V \
-    -l h_rt=24:00:00 \
-    -l eth_speed=10 \
-    -j y \
-    -b y \
-    -N $job_name \
-    jupyter "$service" "${@:1}" 2>&1
-"
-exit
 qsub_msg=$(qsub \
     -V \
     -l h_rt=24:00:00 \
     -l eth_speed=10 \
+    -pe omp $ncpu \
     -j y \
     -b y \
     -N $job_name \
-    jupyter "$service" "$@" 2>&1)
+    jupyter "$service" 2>&1)
 qsub_jid=$(echo $qsub_msg | awk '{ print $3 }')
 echo "$qsub_msg"
 
