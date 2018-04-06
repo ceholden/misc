@@ -38,6 +38,13 @@ Example:
     ... --raster output.gtif --vector samples.shp --seed 10000
     ... stratified input_map.gtif
 
+Changelog:
+    * 0.1.0 : 11/14/2014
+        Initial implementation
+    * 0.1.1 : 04/06/2018
+        Fix bug with raster sample map generation due to float dtype on
+        row/column indexers.
+
 """
 from __future__ import print_function, division
 import logging
@@ -55,7 +62,8 @@ except:
     import ogr
     import osr
 
-__version__ = '0.1.0'
+__version__ = '0.1.1'
+
 
 _allocation_methods = ['proportional', 'equal', 'good_practices']
 
@@ -96,9 +104,9 @@ def random_stratified(image, classes, counts):
         (strata, col, row)      tuple of ndarrays
     """
     # Initialize outputs
-    strata = np.array([])
-    rows = np.array([])
-    cols = np.array([])
+    strata = np.array([], dtype=np.int)
+    rows = np.array([], dtype=np.int)
+    cols = np.array([], dtype=np.int)
 
     logger.debug('Performing sampling')
 
@@ -270,8 +278,7 @@ def write_raster_output(strata, cols, rows, map_ds, output,
     raster = np.ones((map_ds.RasterYSize, map_ds.RasterXSize),
                      dtype=np.uint8) * ndv
 
-    for s, c, r in zip(strata, cols, rows):
-        raster[r, c] = s
+    raster[rows, cols] = strata
 
     # Get output driver
     driver = gdal.GetDriverByName(gdal_frmt)
@@ -326,10 +333,10 @@ def write_vector_output(strata, cols, rows, map_ds, output,
     for i, (stratum, col, row) in enumerate(zip(strata, cols, rows)):
         # Feature
         feature = ogr.Feature(layer.GetLayerDefn())
-        feature.SetField('ID', i)
-        feature.SetField('ROW', row)
-        feature.SetField('COL', col)
-        feature.SetField('STRATUM', stratum)
+        feature.SetField('ID', int(i))
+        feature.SetField('ROW', int(row))
+        feature.SetField('COL', int(col))
+        feature.SetField('STRATUM', int(stratum))
 
         # Geometry
         ring = ogr.Geometry(type=ogr.wkbLinearRing)
